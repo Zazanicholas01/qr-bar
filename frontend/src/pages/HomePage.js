@@ -5,7 +5,7 @@ function HomePage() {
   return (
     <>
       <header>
-        <h1>Bar Centrale</h1>
+        <h1>Bar Nipo</h1>
         <p style={{ marginTop: "0.5rem", opacity: 0.85 }}>
           Aroma intenso, servizio digitale.
         </p>
@@ -29,7 +29,7 @@ function HomePage() {
       </section>
 
       <footer>
-        © {new Date().getFullYear()} Bar Centrale · Powered by QR Bar Platform
+        © {new Date().getFullYear()} Bar Nipo · Powered by QR Bar Platform
       </footer>
     </>
   );

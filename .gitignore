@@ -17,3 +17,7 @@ frontend/build/
 # Misc
 .DS_Store
 *.log
+
+# Virtual Environments
+venv/
+backend/backend-venv/
