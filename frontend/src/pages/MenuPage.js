@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useCart } from "../context/CartContext";
+import { submitOrder } from "../api";
 
 function MenuPage() {
   const { tableId } = useParams();
@@ -11,9 +12,12 @@ function MenuPage() {
     addItem,
     updateQuantity,
     removeItem,
+    clearCart,
     totalAmount,
     totalQuantity,
   } = useCart();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [orderFeedback, setOrderFeedback] = useState(null);
 
   const apiHost = process.env.REACT_APP_API_HOST || window.location.hostname;
   const apiPort = process.env.REACT_APP_API_PORT || "8000";
@@ -79,6 +83,35 @@ function MenuPage() {
   };
 
   const formatPrice = value => value.toFixed(2);
+
+  const handleCheckout = async () => {
+    if (cartItems.length === 0 || isSubmitting) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setOrderFeedback(null);
+
+    try {
+      const response = await submitOrder({
+        tableId: menu.table_id,
+        items: cartItems,
+      });
+
+      setOrderFeedback({
+        type: "success",
+        message: `Ordine #${response.order.id} ricevuto. Il barista è stato avvisato!`,
+      });
+      clearCart();
+    } catch (error) {
+      setOrderFeedback({
+        type: "error",
+        message: error.message || "Impossibile inviare l'ordine. Riprova tra poco.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <>
@@ -168,8 +201,18 @@ function MenuPage() {
                   <span>€ {formatPrice(totalAmount)}</span>
                 </div>
               </div>
-              <button type="button" className="cart-checkout" disabled>
-                Ordine presto disponibile
+              {orderFeedback && (
+                <p className={`cart-feedback cart-feedback-${orderFeedback.type}`}>
+                  {orderFeedback.message}
+                </p>
+              )}
+              <button
+                type="button"
+                className="cart-checkout"
+                onClick={handleCheckout}
+                disabled={cartItems.length === 0 || isSubmitting}
+              >
+                {isSubmitting ? "Invio in corso..." : "Invia ordine"}
               </button>
             </>
           )}

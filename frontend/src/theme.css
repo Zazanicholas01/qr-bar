@@ -255,6 +255,23 @@ header h1 {
   color: var(--color-dark-brown);
 }
 
+.cart-feedback {
+  margin: 1rem 0 0;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  font-size: 0.95rem;
+}
+
+.cart-feedback-success {
+  background: rgba(76, 175, 80, 0.15);
+  color: #255b29;
+}
+
+.cart-feedback-error {
+  background: rgba(229, 57, 53, 0.15);
+  color: #7d1916;
+}
+
 .cart-checkout {
   margin-top: 1.5rem;
   width: 100%;
