@@ -51,3 +51,7 @@ class OrderRead(BaseModel):
     class Config:
         orm_mode = True
         json_encoders = {Decimal: float}
+
+
+class OrderStatusUpdate(BaseModel):
+    status: str = Field(pattern="^(pending|processed|closed)$")

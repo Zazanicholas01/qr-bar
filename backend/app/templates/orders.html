@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Orders Dashboard</title>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        setInterval(() => {
+          window.location.reload();
+        }, 10000);
+      });
+    </script>
+    <style>
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+        margin: 0;
+        background: #f2f0ec;
+        color: #3e2723;
+      }
+      header {
+        background: linear-gradient(135deg, #4e342e, #3e2723);
+        color: #ffffff;
+        padding: 1.5rem 2rem;
+      }
+      main {
+        padding: 2rem;
+        max-width: 960px;
+        margin: 0 auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1.5rem;
+        background: #ffffff;
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 10px 24px rgba(30, 20, 15, 0.15);
+      }
+      th,
+      td {
+        padding: 0.85rem;
+        border-bottom: 1px solid rgba(78, 52, 46, 0.12);
+        vertical-align: top;
+        text-align: left;
+      }
+      th {
+        background: rgba(78, 52, 46, 0.08);
+        font-size: 0.95rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      tr:last-child td {
+        border-bottom: none;
+      }
+      ul {
+        margin: 0.35rem 0 0;
+        padding-left: 1.2rem;
+      }
+      .actions {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+      }
+      .delete-button {
+        border: none;
+        background: #e53935;
+        color: #ffffff;
+        padding: 0.4rem 0.9rem;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .delete-button:hover {
+        background: #c62828;
+      }
+      .process-button {
+        border: none;
+        background: #f7c948;
+        color: #3e2723;
+        padding: 0.4rem 0.9rem;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .process-button:hover {
+        background: #edb535;
+      }
+      .checkout-button {
+        border: none;
+        background: #4caf50;
+        color: #ffffff;
+        padding: 0.4rem 0.9rem;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .checkout-button:hover {
+        background: #2e7d32;
+      }
+      .empty-state {
+        margin-top: 2rem;
+        padding: 2rem;
+        background: #ffffff;
+        border-radius: 16px;
+        text-align: center;
+        box-shadow: 0 10px 24px rgba(30, 20, 15, 0.12);
+      }
+      footer {
+        margin-top: 3rem;
+        text-align: center;
+        color: rgba(27, 27, 27, 0.6);
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Orders Dashboard</h1>
+      <p>Visualizza e gestisci gli ordini ricevuti dal menu digitale.</p>
+    </header>
+    <main>
+      {% if orders %}
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Tavolo / Utente</th>
+            <th>Dettagli</th>
+            <th>Azioni</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for order in orders %}
+          <tr>
+            <td>
+              <strong>#{{ order.id }}</strong><br />
+              <small>{{ order.created_at.strftime('%d/%m/%Y %H:%M') }}</small>
+            </td>
+            <td>
+              <div><strong>Tavolo:</strong> {{ order.table_id or 'n/d' }}</div>
+              <div><strong>Utente:</strong> {{ order.user_id or 'ospite' }}</div>
+            </td>
+            <td>
+              <div><strong>Stato:</strong> {{ order.status }}</div>
+              <div>
+                <strong>Totale:</strong> {{ "%.2f"|format(order.total_amount) }} €
+                ({{ order.total_quantity }} pezzi)
+              </div>
+              <div>
+                <strong>Items:</strong>
+                <ul>
+                  {% for item in order.items %}
+                  <li>
+                    {{ item.quantity }} × {{ item.name }} — {{ "%.2f"|format(item.unit_price) }} € cad.
+                  </li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </td>
+            <td>
+              {% if order.status == 'pending' %}
+              <form
+                method="post"
+                action="{{ request.url_for('mark_order_processed', order_id=order.id) }}"
+                class="actions"
+              >
+                <button type="submit" class="process-button">Segna come evaso</button>
+              </form>
+              {% elif order.status == 'processed' %}
+              <form
+                method="post"
+                action="{{ request.url_for('mark_order_checkout', order_id=order.id) }}"
+                class="actions"
+              >
+                <button type="submit" class="checkout-button">Checkout</button>
+              </form>
+              {% endif %}
+              <form
+                method="post"
+                action="{{ request.url_for('delete_order_admin', order_id=order.id) }}"
+                onsubmit="return confirm('Eliminare l\'ordine #{{ order.id }}?');"
+                class="actions"
+              >
+                <button type="submit" class="delete-button">Elimina</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        <h2>Nessun ordine trovato</h2>
+        <p>Gli ordini compariranno qui appena i clienti invieranno una richiesta.</p>
+      </div>
+      {% endif %}
+      <footer>© Bar Nipo</footer>
+    </main>
+  </body>
+</html>

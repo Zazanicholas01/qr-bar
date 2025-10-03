@@ -52,3 +52,32 @@ async def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_d
 async def list_orders(db: Session = Depends(get_db)):
     orders = db.query(models.Order).order_by(models.Order.created_at.desc()).all()
     return orders
+
+
+@router.delete("/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_order(order_id: int, db: Session = Depends(get_db)):
+    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    db.delete(order)
+    db.commit()
+
+    return None
+
+
+@router.patch("/{order_id}/status", response_model=schemas.OrderRead)
+async def update_order_status(
+    order_id: int,
+    status_payload: schemas.OrderStatusUpdate,
+    db: Session = Depends(get_db),
+):
+    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    order.status = status_payload.status
+    db.commit()
+    db.refresh(order)
+
+    return order

@@ -7,3 +7,4 @@ pydantic
 starlette
 pillow
 sqlalchemy
+jinja2

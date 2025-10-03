@@ -1,14 +1,18 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
 from app.routers import menu, orders, users
-from app.database import Base, get_engine
+from app.database import Base, get_db, get_engine
+from app import models
 import os
 import socket
 import qrcode
-from starlette.responses import StreamingResponse
 import io
 
 app = FastAPI()
+templates = Jinja2Templates(directory="app/templates")
 
 frontend_host = os.environ.get("FRONTEND_HOST", "localhost")
 frontend_port = os.environ.get("FRONTEND_PORT", "3000")
@@ -66,3 +70,53 @@ def generate_qrcode():
     qr.save(buf, format="PNG")
     buf.seek(0)
     return StreamingResponse(buf, media_type="image/png")
+
+
+@app.get("/admin/orders", response_class=HTMLResponse)
+def list_orders_admin(request: Request, db: Session = Depends(get_db)):
+    orders = (
+        db.query(models.Order)
+        .filter(models.Order.status != "closed")
+        .order_by(models.Order.created_at.desc())
+        .all()
+    )
+    return templates.TemplateResponse(
+        "orders.html",
+        {"request": request, "orders": orders},
+    )
+
+
+@app.post("/admin/orders/{order_id}/delete")
+def delete_order_admin(order_id: int, db: Session = Depends(get_db)):
+    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    db.delete(order)
+    db.commit()
+
+    return RedirectResponse(url="/admin/orders", status_code=303)
+
+
+@app.post("/admin/orders/{order_id}/process")
+def mark_order_processed(order_id: int, db: Session = Depends(get_db)):
+    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    order.status = "processed"
+    db.commit()
+
+    return RedirectResponse(url="/admin/orders", status_code=303)
+
+
+@app.post("/admin/orders/{order_id}/checkout")
+def mark_order_checkout(order_id: int, db: Session = Depends(get_db)):
+    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    order.status = "closed"
+    db.commit()
+
+    return RedirectResponse(url="/admin/orders", status_code=303)
