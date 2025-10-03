@@ -7,6 +7,9 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
+    environment:
+      - FRONTEND_HOST=${FRONTEND_HOST}
+      - FRONTEND_PORT=${FRONTEND_PORT:-3000}
     depends_on:
       - db
 

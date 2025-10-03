@@ -6,9 +6,10 @@ RUN npm install
 FROM base AS dev
 ENV HOST=0.0.0.0
 ENV CHOKIDAR_USEPOLLING=true
+ENV BROWSER=none
 COPY . .
 EXPOSE 3000
-CMD ["npm", "start"]
+CMD ["sh", "-c", "npm install && (chmod +x node_modules/.bin/react-scripts 2>/dev/null || true) && npm start"]
 
 FROM base AS build
 COPY . .
