@@ -1,1 +1,19 @@
-venv
+venv/
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Environment
+.env
+.env.*
+
+# Node/React
+node_modules/
+npm-debug.log*
+frontend/build/
+
+# Misc
+.DS_Store
+*.log
