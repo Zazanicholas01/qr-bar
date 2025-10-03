@@ -287,6 +287,11 @@ header h1 {
   color: #7d1916;
 }
 
+.cart-feedback-neutral {
+  background: rgba(78, 52, 46, 0.1);
+  color: rgba(27, 27, 27, 0.75);
+}
+
 .cart-checkout {
   margin-top: 1.5rem;
   width: 100%;

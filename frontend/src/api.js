@@ -16,9 +16,10 @@ async function handleResponse(response) {
   return response.json();
 }
 
-export async function submitOrder({ tableId, items }) {
+export async function submitOrder({ tableId, items, userId }) {
   const payload = {
     table_id: tableId ?? null,
+    user_id: userId ?? null,
     items: items.map(item => ({
       product_id: item.id,
       name: item.name,
@@ -33,6 +34,15 @@ export async function submitOrder({ tableId, items }) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
+  });
+
+  return handleResponse(response);
+}
+
+export async function autoLogin(tableId) {
+  const search = tableId ? `?table_id=${encodeURIComponent(tableId)}` : "";
+  const response = await fetch(`${API_BASE}/users/auto${search}`, {
+    method: "POST",
   });
 
   return handleResponse(response);

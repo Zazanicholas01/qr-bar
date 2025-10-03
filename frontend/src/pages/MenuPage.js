@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useCart } from "../context/CartContext";
-import { submitOrder } from "../api";
+import { autoLogin, submitOrder } from "../api";
 
 function MenuPage() {
   const { tableId } = useParams();
@@ -18,6 +18,9 @@ function MenuPage() {
   } = useCart();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderFeedback, setOrderFeedback] = useState(null);
+  const [userId, setUserId] = useState(null);
+  const [userError, setUserError] = useState(null);
+  const [isAuthenticating, setIsAuthenticating] = useState(true);
 
   const apiHost = process.env.REACT_APP_API_HOST || window.location.hostname;
   const envPort = process.env.REACT_APP_API_PORT;
@@ -44,6 +47,34 @@ function MenuPage() {
       .then(data => setMenu(data))
       .catch(err => setError(err.message));
   }, [menuUrl, tableId]);
+
+  useEffect(() => {
+    let isMounted = true;
+    setIsAuthenticating(true);
+    setUserError(null);
+    setUserId(null);
+
+    autoLogin(tableId)
+      .then(user => {
+        if (isMounted) {
+          setUserId(user.id);
+        }
+      })
+      .catch(err => {
+        if (isMounted) {
+          setUserError(err.message || "Impossibile avviare la sessione utente.");
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsAuthenticating(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [tableId]);
 
   if (error) {
     return (
@@ -124,12 +155,13 @@ function MenuPage() {
     try {
       const order = await submitOrder({
         tableId: menu.table_id,
+        userId,
         items: cartItems,
       });
 
       setOrderFeedback({
         type: "success",
-        message: `Ordine #${order.id} ricevuto. Il barista è stato avvisato!`,
+        message: `Ordine #${order.id} ricevuto (utente ${order.user_id ?? "ospite"}). Il barista è stato avvisato!`,
       });
       clearCart();
     } catch (error) {
@@ -185,6 +217,12 @@ function MenuPage() {
 
         <aside className="cart-panel">
           <h2>Il tuo ordine</h2>
+          {isAuthenticating && (
+            <p className="cart-feedback cart-feedback-neutral">Stiamo preparando la tua sessione...</p>
+          )}
+          {userError && (
+            <p className="cart-feedback cart-feedback-error">{userError}</p>
+          )}
           {cartItems.length === 0 ? (
             <p className="cart-empty">Il carrello è vuoto.</p>
           ) : (
@@ -244,7 +282,13 @@ function MenuPage() {
                 type="button"
                 className="cart-checkout"
                 onClick={handleCheckout}
-                disabled={cartItems.length === 0 || isSubmitting}
+                disabled={
+                  cartItems.length === 0 ||
+                  isSubmitting ||
+                  isAuthenticating ||
+                  !userId ||
+                  Boolean(userError)
+                }
               >
                 {isSubmitting ? "Invio in corso..." : "Invia ordine"}
               </button>

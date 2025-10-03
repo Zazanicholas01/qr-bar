@@ -16,6 +16,12 @@ async def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_d
 
     order = models.Order(table_id=payload.table_id)
 
+    if payload.user_id is not None:
+        user = db.query(models.User).filter(models.User.id == payload.user_id).first()
+        if user is None:
+            raise HTTPException(status_code=404, detail="User not found")
+        order.user_id = user.id
+
     total_quantity = 0
     total_amount = Decimal("0")
 

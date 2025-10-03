@@ -3,6 +3,16 @@ from decimal import Decimal
 from pydantic import BaseModel, Field, PositiveInt
 
 
+class UserRead(BaseModel):
+    id: int
+    name: str | None = None
+    email: str | None = None
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+
+
 class OrderItemCreate(BaseModel):
     product_id: PositiveInt
     name: str
@@ -12,6 +22,7 @@ class OrderItemCreate(BaseModel):
 
 class OrderCreate(BaseModel):
     table_id: str | None = None
+    user_id: int | None = None
     items: list[OrderItemCreate]
 
 
@@ -34,6 +45,7 @@ class OrderRead(BaseModel):
     total_quantity: int
     total_amount: Decimal
     created_at: datetime
+    user_id: int | None
     items: list[OrderItemRead]
 
     class Config:
