@@ -3,15 +3,35 @@ import { Link } from "react-router-dom";
 
 function HomePage() {
   return (
-    <main style={{ padding: "2rem", fontFamily: "sans-serif", textAlign: "center" }}>
-      <h1>QR Bar Frontend</h1>
-      <p>The React app is running correctly.</p>
-      <p>Scan a table QR code or visit a menu directly to see the live data.</p>
-      <p>
-        Example:&nbsp;
-        <Link to="/table/sample">Open sample table menu</Link>
-      </p>
-    </main>
+    <>
+      <header>
+        <h1>Bar Centrale</h1>
+        <p style={{ marginTop: "0.5rem", opacity: 0.85 }}>
+          Aroma intenso, servizio digitale.
+        </p>
+      </header>
+
+      <section className="main-content">
+        <div className="highlight-card">
+          <span className="badge">Live</span>
+          <h2>Benvenuto nel menu digitale</h2>
+          <p>
+            Condividi il QR code con i tuoi clienti e lascia che scoprano il menu
+            del bar direttamente dal proprio smartphone. Nessun download, solo
+            un&apos;esperienza elegante e veloce.
+          </p>
+          <p>
+            Per provare subito, apri un menu di esempio:
+            <br />
+            <Link to="/table/sample">Menu tavolo di prova</Link>
+          </p>
+        </div>
+      </section>
+
+      <footer>
+        © {new Date().getFullYear()} Bar Centrale · Powered by QR Bar Platform
+      </footer>
+    </>
   );
 }
 

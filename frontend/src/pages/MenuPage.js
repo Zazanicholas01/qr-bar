@@ -26,32 +26,60 @@ function MenuPage() {
   }, [menuUrl, tableId]);
 
   if (error) {
-    return <p style={{ padding: "1rem", color: "red" }}>Unable to load menu: {error}</p>;
+    return (
+      <section className="main-content">
+        <div className="status-card">Unable to load menu: {error}</div>
+      </section>
+    );
   }
 
-  if (!menu) return <p style={{ padding: "1rem" }}>Loading menu...</p>;
+  if (!menu) {
+    return (
+      <section className="main-content">
+        <div className="status-card">Loading menu...</div>
+      </section>
+    );
+  }
+
+  const descriptions = {
+    Espresso: "Estratto in 25 secondi con miscela arabica al 70%.",
+    Cappuccino: "Latte montato setoso con spolverata di cacao amaro.",
+    Cornetto: "Sfoglia francese dorata ogni mattina nel nostro laboratorio.",
+  };
 
   return (
-    <main style={{ padding: "1.5rem", fontFamily: "sans-serif" }}>
-      <h2 style={{ marginBottom: "1rem" }}>Table {menu.table_id}</h2>
-      <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-        {menu.items.map(item => (
-          <li
-            key={item.id}
-            style={{
-              border: "1px solid #ddd",
-              borderRadius: "8px",
-              padding: "0.75rem 1rem",
-              marginBottom: "0.75rem",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-            }}
-          >
-            <div style={{ fontWeight: "600" }}>{item.name}</div>
-            <div style={{ color: "#555" }}>€ {item.price.toFixed(2)}</div>
-          </li>
-        ))}
-      </ul>
-    </main>
+    <>
+      <header>
+        <h1>Menu digitale</h1>
+        <p style={{ marginTop: "0.35rem", opacity: 0.8 }}>
+          Tavolo {menu.table_id}
+        </p>
+      </header>
+      <section className="main-content">
+        <div className="status-card">
+          Seleziona un&apos;esperienza dal nostro bancone virtuale. Ordinazioni
+          disponibili direttamente dall&apos;app.
+        </div>
+
+        <div className="menu-grid">
+          {menu.items.map(item => (
+            <article className="menu-item" key={item.id}>
+              <div className="menu-item-header">
+                <span className="menu-item-name">{item.name}</span>
+                <span className="menu-item-price">€ {item.price.toFixed(2)}</span>
+              </div>
+              <p className="menu-item-note">
+                {descriptions[item.name] ||
+                  "Preparato con ingredienti freschi e selezionati per la tua pausa."}
+              </p>
+            </article>
+          ))}
+        </div>
+      </section>
+      <footer>
+        Vuoi ordinare qualcos&apos;altro? Basta mostrare questo schermo al barista.
+      </footer>
+    </>
   );
 }
 
