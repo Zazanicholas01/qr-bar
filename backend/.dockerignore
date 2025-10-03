@@ -1,0 +1,16 @@
+# Version control
+.git
+
+# Python caches and artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Environments and secrets
+.env
+.env.*
+venv/
+
+# Misc
+*.log
+.DS_Store
