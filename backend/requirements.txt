@@ -1,3 +1,8 @@
 qrcode
 fastapi
 routers
+uvicorn[standard]
+psycopg2-binary
+pydantic
+starlette
+pillow

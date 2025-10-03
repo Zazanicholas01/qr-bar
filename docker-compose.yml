@@ -11,12 +11,17 @@ services:
       - db
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      target: dev
     container_name: react_frontend
     ports:
-      - "3000:80"
+      - "3000:3000"
     depends_on:
       - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
 
   db:
     image: postgres:15
