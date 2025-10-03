@@ -20,8 +20,15 @@ function MenuPage() {
   const [orderFeedback, setOrderFeedback] = useState(null);
 
   const apiHost = process.env.REACT_APP_API_HOST || window.location.hostname;
-  const apiPort = process.env.REACT_APP_API_PORT || "8000";
-  const menuUrl = `http://${apiHost}:${apiPort}/api/menu?table_id=${tableId}`;
+  const envPort = process.env.REACT_APP_API_PORT;
+  const apiPort = envPort === undefined ? "8000" : envPort;
+  const apiProtocol =
+    process.env.REACT_APP_API_PROTOCOL ||
+    (typeof window !== "undefined" && window.location.protocol
+      ? window.location.protocol
+      : "http:");
+  const portSegment = apiPort ? `:${apiPort}` : "";
+  const menuUrl = `${apiProtocol}//${apiHost}${portSegment}/api/menu?table_id=${tableId}`;
 
   useEffect(() => {
     setError(null);
@@ -56,9 +63,31 @@ function MenuPage() {
 
   const descriptions = {
     Espresso: "Estratto in 25 secondi con miscela arabica al 70%.",
+    "Espresso Macchiato": "Un tocco di latte montato per un finale vellutato.",
     Cappuccino: "Latte montato setoso con spolverata di cacao amaro.",
-    Cornetto: "Sfoglia francese dorata ogni mattina nel nostro laboratorio.",
+    "Latte Macchiato": "Strati di latte e caffè per un sorso equilibrato.",
+    "Caffè Americano": "Più lungo e delicato, perfetto per un sorso prolungato.",
+    "Succo d'arancia": "Spremuto fresco ogni mattina per la giusta carica.",
+    "Acqua frizzante": "Leggera e frizzante, perfetta per accompagnare ogni piatto.",
+    "Acqua naturale": "Naturale e bilanciata, servita fresca.",
+    "Tè freddo": "Infuso alla pesca, servito con ghiaccio.",
+    "Vino bianco": "Selezione del giorno, aroma floreale e finale minerale.",
+    "Vino rosso": "Rosso intenso con note di frutti di bosco.",
+    "Birra artigianale": "Prodotta localmente, gusto deciso e profumo di luppolo.",
+    Spritz: "Classico veneziano con prosecco, Aperol e una fetta d'arancia.",
+    Negroni: "Un grande classico italiano equilibrato e aromatico.",
+    Mojito: "Rum bianco, lime e menta fresca per un drink iconico.",
+    "Espresso Martini": "Vodka, espresso e liquore al caffè per un finale energizzante.",
   };
+
+  const categories = menu.categories && menu.categories.length
+    ? menu.categories
+    : [
+        {
+          name: "Menu",
+          items: menu.items || [],
+        },
+      ];
 
   const handleAddToCart = item => {
     addItem({
@@ -93,14 +122,14 @@ function MenuPage() {
     setOrderFeedback(null);
 
     try {
-      const response = await submitOrder({
+      const order = await submitOrder({
         tableId: menu.table_id,
         items: cartItems,
       });
 
       setOrderFeedback({
         type: "success",
-        message: `Ordine #${response.order.id} ricevuto. Il barista è stato avvisato!`,
+        message: `Ordine #${order.id} ricevuto. Il barista è stato avvisato!`,
       });
       clearCart();
     } catch (error) {
@@ -127,27 +156,32 @@ function MenuPage() {
           disponibili direttamente dall&apos;app.
         </div>
 
-        <div className="menu-grid">
-          {menu.items.map(item => (
-            <article className="menu-item" key={item.id}>
-              <div className="menu-item-header">
-                <span className="menu-item-name">{item.name}</span>
-                <span className="menu-item-price">€ {formatPrice(item.price)}</span>
-              </div>
-              <p className="menu-item-note">
-                {descriptions[item.name] ||
-                  "Preparato con ingredienti freschi e selezionati per la tua pausa."}
-              </p>
-              <button
-                type="button"
-                className="menu-item-add"
-                onClick={() => handleAddToCart(item)}
-              >
-                Aggiungi al carrello
-              </button>
-            </article>
-          ))}
-        </div>
+        {categories.map(category => (
+          <section className="menu-category" key={category.name}>
+            <h2 className="menu-category-title">{category.name}</h2>
+            <div className="menu-grid">
+              {category.items.map(item => (
+                <article className="menu-item" key={item.id}>
+                  <div className="menu-item-header">
+                    <span className="menu-item-name">{item.name}</span>
+                    <span className="menu-item-price">€ {formatPrice(item.price)}</span>
+                  </div>
+                  <p className="menu-item-note">
+                    {descriptions[item.name] ||
+                      "Preparato con ingredienti freschi e selezionati per la tua pausa."}
+                  </p>
+                  <button
+                    type="button"
+                    className="menu-item-add"
+                    onClick={() => handleAddToCart(item)}
+                  >
+                    Aggiungi al carrello
+                  </button>
+                </article>
+              ))}
+            </div>
+          </section>
+        ))}
 
         <aside className="cart-panel">
           <h2>Il tuo ordine</h2>
