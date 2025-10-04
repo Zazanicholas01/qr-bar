@@ -1,0 +1,9 @@
+// Start a simulation run
+
+curl -X POST http://localhost:8000/api/simulator/run \
+     -H 'Content-Type: application/json' \
+     -d '{"hours": 2, "time_scale": 120, "seed": 42}'
+
+// Reset simulation
+
+curl -X POST http://localhost:8000/api/simulator/reset

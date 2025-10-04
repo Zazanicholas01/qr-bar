@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from app.routers import menu, orders, tables, users
+from app.routers import menu, orders, simulator, tables, users
 from app.database import Base, get_db, get_engine
 from sqlalchemy import text
 from app import models
@@ -39,6 +39,18 @@ app.include_router(menu.router, prefix="/api/menu", tags=["Menu"])
 app.include_router(tables.router, prefix="/api/tables", tags=["Tables"])
 app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
+app.include_router(simulator.router, prefix="/api/simulator", tags=["Simulator"])
+
+
+def _column_exists(connection, table: str, column: str) -> bool:
+    result = connection.execute(
+        text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_name = :table AND column_name = :column"
+        ),
+        {"table": table, "column": column},
+    )
+    return result.first() is not None
 
 
 def _ensure_schema() -> None:
@@ -62,16 +74,20 @@ def _ensure_schema() -> None:
         connection.execute(
             text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS table_code VARCHAR(80);")
         )
-        connection.execute(
-            text(
-                "UPDATE users SET table_code = table_id WHERE table_code IS NULL AND table_id IS NOT NULL;"
+        if _column_exists(connection, "users", "table_id"):
+            connection.execute(
+                text(
+                    "UPDATE users SET table_code = table_id "
+                    "WHERE table_code IS NULL AND table_id IS NOT NULL;"
+                )
             )
-        )
-        connection.execute(
-            text(
-                "UPDATE orders SET table_code = table_id WHERE table_code IS NULL AND table_id IS NOT NULL;"
+        if _column_exists(connection, "orders", "table_id"):
+            connection.execute(
+                text(
+                    "UPDATE orders SET table_code = table_id "
+                    "WHERE table_code IS NULL AND table_id IS NOT NULL;"
+                )
             )
-        )
         connection.execute(text("ALTER TABLE users DROP COLUMN IF EXISTS table_id;"))
         connection.execute(text("ALTER TABLE orders DROP COLUMN IF EXISTS table_id;"))
         connection.execute(
