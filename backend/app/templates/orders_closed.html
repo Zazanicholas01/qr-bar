@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Ordini chiusi</title>
+    <style>
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+        margin: 0;
+        background: #f2f0ec;
+        color: #3e2723;
+      }
+      header {
+        background: linear-gradient(135deg, #3e2723, #1b1b1b);
+        color: #ffffff;
+        padding: 1.5rem 2rem;
+      }
+      main {
+        padding: 2rem;
+        max-width: 960px;
+        margin: 0 auto;
+      }
+      form.filter {
+        margin-top: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+      input[type="date"] {
+        padding: 0.45rem 0.6rem;
+        border-radius: 8px;
+        border: 1px solid rgba(78, 52, 46, 0.25);
+        font-size: 0.95rem;
+      }
+      button.submit {
+        border: none;
+        background: #4e342e;
+        color: #ffffff;
+        padding: 0.45rem 0.9rem;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1.5rem;
+        background: #ffffff;
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 10px 24px rgba(30, 20, 15, 0.15);
+      }
+      th,
+      td {
+        padding: 0.85rem;
+        border-bottom: 1px solid rgba(78, 52, 46, 0.12);
+        vertical-align: top;
+        text-align: left;
+      }
+      th {
+        background: rgba(78, 52, 46, 0.08);
+        font-size: 0.95rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      tr:last-child td {
+        border-bottom: none;
+      }
+      ul {
+        margin: 0.35rem 0 0;
+        padding-left: 1.2rem;
+      }
+      .empty-state {
+        margin-top: 2rem;
+        padding: 2rem;
+        background: #ffffff;
+        border-radius: 16px;
+        text-align: center;
+        box-shadow: 0 10px 24px rgba(30, 20, 15, 0.12);
+      }
+      a.back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        text-decoration: none;
+        color: #4e342e;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Ordini chiusi</h1>
+      <p>Storico degli ordini completati per la giornata selezionata.</p>
+    </header>
+    <main>
+      <a href="/admin/orders" class="back-link">← Torna agli ordini attivi</a>
+      <form class="filter" method="get" action="/admin/orders/closed">
+        <label for="day"><strong>Data:</strong></label>
+        <input type="date" id="day" name="day" value="{{ selected_day }}" />
+        <button type="submit" class="submit">Filtra</button>
+      </form>
+
+      {% if orders %}
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Tavolo / Utente</th>
+            <th>Dettagli</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for order in orders %}
+          <tr>
+            <td>
+              <strong>#{{ order.id }}</strong><br />
+              <small>{{ order.created_at.strftime('%d/%m/%Y %H:%M') }}</small>
+            </td>
+            <td>
+              <div><strong>Tavolo:</strong> {{ order.table_id or 'n/d' }}</div>
+              <div><strong>Utente:</strong> {{ order.user_id or 'ospite' }}</div>
+            </td>
+            <td>
+              <div><strong>Totale:</strong> {{ "%.2f"|format(order.total_amount) }} €</div>
+              <div><strong>Pezzi:</strong> {{ order.total_quantity }}</div>
+              <div>
+                <strong>Items:</strong>
+                <ul>
+                  {% for item in order.items %}
+                  <li>
+                    {{ item.quantity }} × {{ item.name }} — {{ "%.2f"|format(item.unit_price) }} € cad.
+                  </li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        <h2>Nessun ordine chiuso</h2>
+        <p>Non risultano ordini chiusi nella data selezionata.</p>
+      </div>
+      {% endif %}
+    </main>
+  </body>
+</html>

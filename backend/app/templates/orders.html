@@ -98,6 +98,21 @@
       .checkout-button:hover {
         background: #2e7d32;
       }
+      .history-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        background: #4e342e;
+        color: #ffffff;
+        padding: 0.45rem 0.9rem;
+        border-radius: 999px;
+        font-weight: 600;
+        text-decoration: none;
+        box-shadow: 0 4px 12px rgba(30, 20, 15, 0.18);
+      }
+      .history-link:hover {
+        background: #3e2723;
+      }
       .empty-state {
         margin-top: 2rem;
         padding: 2rem;
@@ -120,6 +135,9 @@
       <p>Visualizza e gestisci gli ordini ricevuti dal menu digitale.</p>
     </header>
     <main>
+      <div style="display: flex; justify-content: flex-end;">
+        <a href="/admin/orders/closed" class="history-link">Storico ordini chiusi</a>
+      </div>
       {% if orders %}
       <table>
         <thead>

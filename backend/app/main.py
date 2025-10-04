@@ -1,4 +1,5 @@
-from fastapi import Depends, FastAPI, HTTPException, Request
+from datetime import datetime, timedelta
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
@@ -120,3 +121,43 @@ def mark_order_checkout(order_id: int, db: Session = Depends(get_db)):
     db.commit()
 
     return RedirectResponse(url="/admin/orders", status_code=303)
+
+
+@app.get("/admin/orders/closed", response_class=HTMLResponse)
+def list_closed_orders(
+    request: Request,
+    day: str | None = Query(default=None, description="Date in YYYY-MM-DD format"),
+    db: Session = Depends(get_db),
+):
+    try:
+        if day:
+            target_date = datetime.strptime(day, "%Y-%m-%d")
+        else:
+            target_date = datetime.utcnow()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+    start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    end = start + timedelta(days=1)
+
+    orders = (
+        db.query(models.Order)
+        .filter(
+            models.Order.status == "closed",
+            models.Order.created_at >= start,
+            models.Order.created_at < end,
+        )
+        .order_by(models.Order.created_at.desc())
+        .all()
+    )
+
+    selected_day = start.strftime("%Y-%m-%d")
+
+    return templates.TemplateResponse(
+        "orders_closed.html",
+        {
+            "request": request,
+            "orders": orders,
+            "selected_day": selected_day,
+        },
+    )
