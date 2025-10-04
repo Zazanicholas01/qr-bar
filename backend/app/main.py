@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -40,6 +40,13 @@ app.include_router(tables.router, prefix="/api/tables", tags=["Tables"])
 app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(simulator.router, prefix="/api/simulator", tags=["Simulator"])
+
+PAYMENT_METHODS = [
+    "cash",
+    "card",
+    "mobile",
+    "other",
+]
 
 
 def _column_exists(connection, table: str, column: str) -> bool:
@@ -228,7 +235,11 @@ def list_orders_admin(request: Request, db: Session = Depends(get_db)):
     )
     return templates.TemplateResponse(
         "orders.html",
-        {"request": request, "orders": orders},
+        {
+            "request": request,
+            "orders": orders,
+            "payment_methods": PAYMENT_METHODS,
+        },
     )
 
 
@@ -257,12 +268,31 @@ def mark_order_processed(order_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/admin/orders/{order_id}/checkout")
-def mark_order_checkout(order_id: int, db: Session = Depends(get_db)):
+def mark_order_checkout(
+    order_id: int,
+    payment_method: str = Form(...),
+    db: Session = Depends(get_db),
+):
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if order is None:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    method = payment_method.strip().lower()
+    if method not in PAYMENT_METHODS:
+        raise HTTPException(status_code=400, detail="Unsupported payment method")
+
     order.status = "closed"
+    if order.transaction:
+        order.transaction.method = method
+        order.transaction.amount = order.total_amount
+        order.transaction.created_at = datetime.utcnow()
+    else:
+        transaction = models.Transaction(
+            order=order,
+            method=method,
+            amount=order.total_amount,
+        )
+        db.add(transaction)
     db.commit()
 
     return RedirectResponse(url="/admin/orders", status_code=303)

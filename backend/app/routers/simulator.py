@@ -132,5 +132,7 @@ async def run_simulation(
 
 @router.post("/reset", status_code=status.HTTP_204_NO_CONTENT)
 async def reset_simulation(db: Session = Depends(get_db)):
-    db.execute(text("TRUNCATE TABLE order_items, orders, users RESTART IDENTITY CASCADE"))
+    db.execute(
+        text("TRUNCATE TABLE order_items, transactions, orders, users RESTART IDENTITY CASCADE")
+    )
     db.commit()

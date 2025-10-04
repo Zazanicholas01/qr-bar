@@ -127,6 +127,13 @@
             <td>
               <div><strong>Totale:</strong> {{ "%.2f"|format(order.total_amount) }} €</div>
               <div><strong>Pezzi:</strong> {{ order.total_quantity }}</div>
+              {% if order.transaction %}
+              <div>
+                <strong>Pagamento:</strong>
+                {{ order.transaction.method|capitalize }} ·
+                {{ "%.2f"|format(order.transaction.amount) }} €
+              </div>
+              {% endif %}
               <div>
                 <strong>Items:</strong>
                 <ul>

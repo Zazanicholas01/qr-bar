@@ -98,6 +98,13 @@
       .checkout-button:hover {
         background: #2e7d32;
       }
+      .payment-select {
+        border-radius: 8px;
+        border: 1px solid rgba(78, 52, 46, 0.25);
+        padding: 0.35rem 0.5rem;
+        font-size: 0.9rem;
+        color: #3e2723;
+      }
       .history-link {
         display: inline-flex;
         align-items: center;
@@ -168,6 +175,13 @@
                 <strong>Totale:</strong> {{ "%.2f"|format(order.total_amount) }} €
                 ({{ order.total_quantity }} pezzi)
               </div>
+              {% if order.transaction %}
+              <div>
+                <strong>Pagamento:</strong>
+                {{ order.transaction.method|capitalize }} ·
+                {{ "%.2f"|format(order.transaction.amount) }} €
+              </div>
+              {% endif %}
               <div>
                 <strong>Items:</strong>
                 <ul>
@@ -189,11 +203,19 @@
                 <button type="submit" class="process-button">Segna come evaso</button>
               </form>
               {% elif order.status == 'processed' %}
+              {% set current_method = order.transaction.method if order.transaction else payment_methods[0] %}
               <form
                 method="post"
                 action="{{ request.url_for('mark_order_checkout', order_id=order.id) }}"
                 class="actions"
               >
+                <select name="payment_method" class="payment-select">
+                  {% for method in payment_methods %}
+                  <option value="{{ method }}" {% if method == current_method %}selected{% endif %}>
+                    {{ method|capitalize }}
+                  </option>
+                  {% endfor %}
+                </select>
                 <button type="submit" class="checkout-button">Checkout</button>
               </form>
               {% endif %}

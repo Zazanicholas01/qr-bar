@@ -1,6 +1,8 @@
 from datetime import datetime
 from decimal import Decimal
-from pydantic import BaseModel, Field, PositiveInt
+from pydantic import BaseModel, Field, PositiveInt, ConfigDict
+
+DECIMAL_ENCODERS = {Decimal: float}
 
 
 class TableCreate(BaseModel):
@@ -14,8 +16,7 @@ class TableRead(BaseModel):
     name: str | None
     created_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserRead(BaseModel):
@@ -26,8 +27,7 @@ class UserRead(BaseModel):
     table_code: str | None = None
     table: TableRead | None = None
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class OrderItemCreate(BaseModel):
@@ -50,9 +50,16 @@ class OrderItemRead(BaseModel):
     unit_price: Decimal
     quantity: int
 
-    class Config:
-        orm_mode = True
-        json_encoders = {Decimal: float}
+    model_config = ConfigDict(from_attributes=True, json_encoders=DECIMAL_ENCODERS)
+
+
+class TransactionRead(BaseModel):
+    id: int
+    amount: Decimal
+    method: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True, json_encoders=DECIMAL_ENCODERS)
 
 
 class OrderRead(BaseModel):
@@ -65,11 +72,13 @@ class OrderRead(BaseModel):
     user_id: int | None
     table: TableRead | None = None
     items: list[OrderItemRead]
+    transaction: TransactionRead | None = None
 
-    class Config:
-        orm_mode = True
-        json_encoders = {Decimal: float}
-        allow_population_by_field_name = True
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_encoders=DECIMAL_ENCODERS,
+        populate_by_name=True,
+    )
 
 
 class OrderStatusUpdate(BaseModel):

@@ -8,3 +8,4 @@ starlette
 pillow
 sqlalchemy
 jinja2
+python-multipart

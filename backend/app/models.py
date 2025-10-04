@@ -56,6 +56,12 @@ class Order(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    transaction = relationship(
+        "Transaction",
+        back_populates="order",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
 
     @property
     def table_id(self) -> str | None:
@@ -75,3 +81,15 @@ class OrderItem(Base):
     quantity = Column(Integer, nullable=False)
 
     order = relationship("Order", back_populates="items")
+
+
+class Transaction(Base):
+    __tablename__ = "transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), unique=True, nullable=False)
+    amount = Column(Numeric(10, 2), nullable=False)
+    method = Column(String(50), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    order = relationship("Order", back_populates="transaction")
