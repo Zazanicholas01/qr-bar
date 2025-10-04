@@ -118,7 +118,10 @@
               <small>{{ order.created_at.strftime('%d/%m/%Y %H:%M') }}</small>
             </td>
             <td>
-              <div><strong>Tavolo:</strong> {{ order.table_id or 'n/d' }}</div>
+              <div>
+                <strong>Tavolo:</strong>
+                {{ order.table.code if order.table else order.table_code or 'n/d' }}
+              </div>
               <div><strong>Utente:</strong> {{ order.user_id or 'ospite' }}</div>
             </td>
             <td>

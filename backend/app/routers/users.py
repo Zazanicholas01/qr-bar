@@ -15,6 +15,20 @@ async def auto_login(table_id: str | None = None, db: Session = Depends(get_db))
     try:
         guest_label = table_id or "guest"
         user = models.User(name=f"Guest {guest_label} {datetime.utcnow().strftime('%H%M%S')}")
+
+        if table_id:
+            table = (
+                db.query(models.Table)
+                .filter(models.Table.code == table_id)
+                .first()
+            )
+            if table is None:
+                table = models.Table(code=table_id)
+                db.add(table)
+                db.flush()
+            user.table = table
+            user.table_code = table.code
+
         db.add(user)
         db.commit()
         db.refresh(user)

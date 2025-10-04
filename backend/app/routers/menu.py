@@ -1,9 +1,18 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
+
+from app import models
+from app.database import get_db
+
 
 router = APIRouter()
 
+
 @router.get("")
-async def get_menu(table_id: str | None = Query(default=None)):
+async def get_menu(
+    table_id: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
     """Returns the menu items available for a given table."""
     categories = [
         {
@@ -49,7 +58,22 @@ async def get_menu(table_id: str | None = Query(default=None)):
         },
     ]
 
+    table_code = table_id or "general"
+
+    table = None
+    if table_id:
+        table = (
+            db.query(models.Table)
+            .filter(models.Table.code == table_id)
+            .first()
+        )
+        if table is None:
+            table = models.Table(code=table_id)
+            db.add(table)
+            db.commit()
+
     return {
-        "table_id": table_id or "general",
+        "table_id": table_code,
+        "table_name": table.name if table else None,
         "categories": categories,
     }

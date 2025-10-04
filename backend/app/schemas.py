@@ -3,11 +3,28 @@ from decimal import Decimal
 from pydantic import BaseModel, Field, PositiveInt
 
 
+class TableCreate(BaseModel):
+    code: str
+    name: str | None = None
+
+
+class TableRead(BaseModel):
+    id: int
+    code: str
+    name: str | None
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+
+
 class UserRead(BaseModel):
     id: int
     name: str | None = None
     email: str | None = None
     created_at: datetime
+    table_code: str | None = None
+    table: TableRead | None = None
 
     class Config:
         orm_mode = True
@@ -40,17 +57,19 @@ class OrderItemRead(BaseModel):
 
 class OrderRead(BaseModel):
     id: int
-    table_id: str | None
+    table_code: str | None = Field(default=None, alias="table_id")
     status: str
     total_quantity: int
     total_amount: Decimal
     created_at: datetime
     user_id: int | None
+    table: TableRead | None = None
     items: list[OrderItemRead]
 
     class Config:
         orm_mode = True
         json_encoders = {Decimal: float}
+        allow_population_by_field_name = True
 
 
 class OrderStatusUpdate(BaseModel):

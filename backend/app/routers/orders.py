@@ -14,13 +14,30 @@ async def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_d
     if not payload.items:
         raise HTTPException(status_code=400, detail="Order must include at least one item")
 
-    order = models.Order(table_id=payload.table_id)
+    order = models.Order()
+    user = None
 
     if payload.user_id is not None:
         user = db.query(models.User).filter(models.User.id == payload.user_id).first()
         if user is None:
             raise HTTPException(status_code=404, detail="User not found")
         order.user_id = user.id
+
+    if payload.table_id:
+        table = (
+            db.query(models.Table)
+            .filter(models.Table.code == payload.table_id)
+            .first()
+        )
+        if table is None:
+            table = models.Table(code=payload.table_id)
+            db.add(table)
+            db.flush()
+        order.table = table
+        order.table_code = table.code
+        if user is not None:
+            user.table = table
+            user.table_code = table.code
 
     total_quantity = 0
     total_amount = Decimal("0")
