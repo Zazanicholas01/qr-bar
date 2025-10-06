@@ -15,6 +15,9 @@ services:
       - POSTGRES_USER=baradmin
       - POSTGRES_PASSWORD=barpass
       - POSTGRES_DB=bardb
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
+      - ADMIN_SECRET_KEY=${ADMIN_SECRET_KEY:-please-change-me}
     depends_on:
       - db
 
@@ -30,6 +33,20 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
+
+  reverse-proxy:
+    image: nginx:1.25-alpine
+    container_name: nginx_reverse_proxy
+    depends_on:
+      - frontend
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./certs:/etc/nginx/certs:ro
+    restart: unless-stopped
 
   pgadmin:
     image: dpage/pgadmin4:8

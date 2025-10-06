@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.routers import menu, orders, simulator, tables, users
 from app.database import Base, get_db, get_engine
 from sqlalchemy import text
-from app import models
+from app import models, security
 import os
 import socket
 import qrcode
@@ -40,6 +40,13 @@ app.include_router(tables.router, prefix="/api/tables", tags=["Tables"])
 app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(simulator.router, prefix="/api/simulator", tags=["Simulator"])
+
+PAYMENT_METHODS = [
+    "cash",
+    "card",
+    "mobile",
+    "other",
+]
 
 PAYMENT_METHODS = [
     "cash",
@@ -147,6 +154,7 @@ def _ensure_schema() -> None:
                 )
 
     Base.metadata.create_all(bind=engine)
+    _bootstrap_admin()
 
 
 @app.on_event("startup")
@@ -225,8 +233,68 @@ def generate_qrcodes(db: Session = Depends(get_db)):
     return "".join(html_parts)
 
 
+def _bootstrap_admin() -> None:
+    username = os.environ.get("ADMIN_USERNAME")
+    password = os.environ.get("ADMIN_PASSWORD")
+    if not username or not password:
+        return
+
+    engine = get_engine()
+    password_hash = security.hash_password(password)
+    with engine.begin() as connection:
+        existing = connection.execute(
+            text("SELECT 1 FROM staff_users WHERE username = :username"),
+            {"username": username},
+        ).first()
+        if existing:
+            return
+        connection.execute(
+            text(
+                "INSERT INTO staff_users (username, password_hash, role, created_at) "
+                "VALUES (:username, :password_hash, :role, NOW())"
+            ),
+            {"username": username, "password_hash": password_hash, "role": "admin"},
+        )
+
+
+@app.get("/admin/login", response_class=HTMLResponse)
+def login_page(request: Request, db: Session = Depends(get_db)):
+    if security.get_admin_from_request(request, db):
+        return RedirectResponse(url="/admin/orders", status_code=303)
+    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+
+
+@app.post("/admin/login")
+def login_submit(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = db.query(models.StaffUser).filter(models.StaffUser.username == username).first()
+    if not user or not security.verify_password(password, user.password_hash):
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "error": "Credenziali non valide"},
+            status_code=400,
+        )
+
+    response = RedirectResponse(url="/admin/orders", status_code=303)
+    security.set_admin_session(response, user)
+    return response
+
+
+@app.post("/admin/logout")
+def logout(request: Request):
+    response = RedirectResponse(url="/admin/login", status_code=303)
+    security.clear_admin_session(response)
+    return response
+
+
 @app.get("/admin/orders", response_class=HTMLResponse)
 def list_orders_admin(request: Request, db: Session = Depends(get_db)):
+    if not security.get_admin_from_request(request, db):
+        return RedirectResponse(url="/admin/login", status_code=303)
     orders = (
         db.query(models.Order)
         .filter(models.Order.status != "closed")
@@ -243,8 +311,21 @@ def list_orders_admin(request: Request, db: Session = Depends(get_db)):
     )
 
 
+@app.get("/admin/dashboard", response_class=HTMLResponse)
+def admin_dashboard(request: Request, db: Session = Depends(get_db)):
+    if not security.get_admin_from_request(request, db):
+        return RedirectResponse(url="/admin/login", status_code=303)
+    return templates.TemplateResponse("dashboard.html", {"request": request})
+
+
 @app.post("/admin/orders/{order_id}/delete")
-def delete_order_admin(order_id: int, db: Session = Depends(get_db)):
+def delete_order_admin(
+    order_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    if not security.get_admin_from_request(request, db):
+        return RedirectResponse(url="/admin/login", status_code=303)
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if order is None:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -256,7 +337,13 @@ def delete_order_admin(order_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/admin/orders/{order_id}/process")
-def mark_order_processed(order_id: int, db: Session = Depends(get_db)):
+def mark_order_processed(
+    order_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    if not security.get_admin_from_request(request, db):
+        return RedirectResponse(url="/admin/login", status_code=303)
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if order is None:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -270,9 +357,12 @@ def mark_order_processed(order_id: int, db: Session = Depends(get_db)):
 @app.post("/admin/orders/{order_id}/checkout")
 def mark_order_checkout(
     order_id: int,
+    request: Request,
     payment_method: str = Form(...),
     db: Session = Depends(get_db),
 ):
+    if not security.get_admin_from_request(request, db):
+        return RedirectResponse(url="/admin/login", status_code=303)
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if order is None:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -298,12 +388,70 @@ def mark_order_checkout(
     return RedirectResponse(url="/admin/orders", status_code=303)
 
 
+@app.get("/api/dashboard/summary")
+def dashboard_summary(
+    db: Session = Depends(get_db),
+    admin: models.StaffUser = Depends(security.require_admin_api),
+):
+    total_amount = (
+        db.query(models.Order)
+        .filter(models.Order.status == "closed")
+        .with_entities(text("COALESCE(SUM(total_amount), 0)"))
+        .scalar()
+    )
+    closed_count = (
+        db.query(models.Order)
+        .filter(models.Order.status == "closed")
+        .count()
+    )
+
+    item_rows = (
+        db.query(
+            models.OrderItem.name,
+            text("SUM(order_items.quantity * order_items.unit_price) AS total"),
+        )
+        .join(models.Order, models.OrderItem.order_id == models.Order.id)
+        .filter(models.Order.status == "closed")
+        .group_by(models.OrderItem.name)
+        .order_by(text("total DESC"))
+        .all()
+    )
+    items = [
+        {"name": name, "total": float(total)}
+        for name, total in item_rows
+    ]
+
+    payment_rows = (
+        db.query(
+            models.Transaction.method,
+            text("COUNT(*) AS count"),
+        )
+        .join(models.Order, models.Transaction.order_id == models.Order.id)
+        .group_by(models.Transaction.method)
+        .order_by(text("count DESC"))
+        .all()
+    )
+    payments = [
+        {"method": method.capitalize(), "count": count}
+        for method, count in payment_rows
+    ]
+
+    return {
+        "total_amount": float(total_amount or 0),
+        "closed_count": closed_count,
+        "items": items,
+        "payments": payments,
+    }
+
+
 @app.get("/admin/orders/closed", response_class=HTMLResponse)
 def list_closed_orders(
     request: Request,
     day: str | None = Query(default=None, description="Date in YYYY-MM-DD format"),
     db: Session = Depends(get_db),
 ):
+    if not security.get_admin_from_request(request, db):
+        return RedirectResponse(url="/admin/login", status_code=303)
     try:
         if day:
             target_date = datetime.strptime(day, "%Y-%m-%d")

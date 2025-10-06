@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app import models
+from app import models, security
 from app.database import SessionLocal, get_db
 from app.routers.menu import CATEGORIES
 
@@ -125,13 +125,17 @@ def _run_simulation(params: SimulationRequest) -> None:
 async def run_simulation(
     request: SimulationRequest,
     background_tasks: BackgroundTasks,
+    admin: models.StaffUser = Depends(security.require_admin_api),
 ):
     background_tasks.add_task(_run_simulation, request)
     return {"message": "Simulation started", "total_users": int(request.hours * ORDER_RATE_PER_HOUR)}
 
 
 @router.post("/reset", status_code=status.HTTP_204_NO_CONTENT)
-async def reset_simulation(db: Session = Depends(get_db)):
+async def reset_simulation(
+    db: Session = Depends(get_db),
+    admin: models.StaffUser = Depends(security.require_admin_api),
+):
     db.execute(
         text("TRUNCATE TABLE order_items, transactions, orders, users RESTART IDENTITY CASCADE")
     )

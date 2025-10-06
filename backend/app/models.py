@@ -18,6 +18,16 @@ class Table(Base):
     orders = relationship("Order", back_populates="table", foreign_keys="Order.table_ref_id")
 
 
+class StaffUser(Base):
+    __tablename__ = "staff_users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(120), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    role = Column(String(50), nullable=False, default="admin")
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class User(Base):
     __tablename__ = "users"
 

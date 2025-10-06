@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+        margin: 0;
+        background: #f5f5f5;
+        color: #3e2723;
+      }
+      header {
+        background: linear-gradient(135deg, #4e342e, #3e2723);
+        color: #ffffff;
+        padding: 1.5rem 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      main {
+        padding: 2rem;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+      }
+      .card {
+        background: #ffffff;
+        border-radius: 14px;
+        padding: 1.5rem;
+        box-shadow: 0 10px 24px rgba(30, 20, 15, 0.1);
+        text-align: center;
+      }
+      .card h2 {
+        margin: 0;
+        font-size: 0.95rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(27, 27, 27, 0.6);
+      }
+      .card p {
+        margin: 0.65rem 0 0;
+        font-size: 2rem;
+        font-weight: 700;
+        color: #4e342e;
+      }
+      .charts {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 1.5rem;
+      }
+      .chart-card {
+        background: #ffffff;
+        border-radius: 14px;
+        padding: 1.5rem;
+        box-shadow: 0 10px 24px rgba(30, 20, 15, 0.1);
+      }
+      .chart-card h3 {
+        margin: 0 0 1rem;
+        font-size: 1.1rem;
+        color: #4e342e;
+      }
+      a.back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        text-decoration: none;
+        color: #ffffff;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>Dashboard</h1>
+        <p>Monitoraggio vendite e metodi di pagamento</p>
+      </div>
+      <div style="display:flex; gap:0.75rem; align-items:center;">
+        <a href="/admin/orders" class="back-link">← Torna agli ordini</a>
+        <form method="post" action="/admin/logout" style="margin:0;">
+          <button type="submit" class="back-link" style="background:#c62828; border:none; padding:0.45rem 0.9rem; border-radius:999px; cursor:pointer;">Logout</button>
+        </form>
+      </div>
+    </header>
+    <main>
+      <div class="cards">
+        <div class="card">
+          <h2>Totale incassato</h2>
+          <p id="total-amount">€ 0.00</p>
+        </div>
+        <div class="card">
+          <h2>Ordini chiusi oggi</h2>
+          <p id="closed-orders">0</p>
+        </div>
+      </div>
+      <div class="charts">
+        <div class="chart-card">
+          <h3>Vendite per articolo</h3>
+          <canvas id="items-chart"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Metodi di pagamento</h3>
+          <canvas id="payments-chart"></canvas>
+        </div>
+      </div>
+    </main>
+    <script>
+      const REFRESH_MS = 10000;
+      const totalAmountEl = document.getElementById("total-amount");
+      const closedOrdersEl = document.getElementById("closed-orders");
+      const itemsCtx = document.getElementById("items-chart").getContext("2d");
+      const paymentsCtx = document.getElementById("payments-chart").getContext("2d");
+
+      let itemsChart;
+      let paymentsChart;
+
+      async function fetchDashboard() {
+        const response = await fetch("/api/dashboard/summary", {
+          credentials: "same-origin",
+        });
+        if (!response.ok) {
+          console.error("Unable to load dashboard data");
+          return;
+        }
+        const data = await response.json();
+        totalAmountEl.textContent = `€ ${data.total_amount.toFixed(2)}`;
+        closedOrdersEl.textContent = data.closed_count;
+        updateItemsChart(data.items);
+        updatePaymentsChart(data.payments);
+      }
+
+      function updateItemsChart(items) {
+        const labels = items.map(entry => entry.name);
+        const values = items.map(entry => entry.total);
+        if (itemsChart) {
+          itemsChart.data.labels = labels;
+          itemsChart.data.datasets[0].data = values;
+          itemsChart.update();
+          return;
+        }
+        itemsChart = new Chart(itemsCtx, {
+          type: "bar",
+          data: {
+            labels,
+            datasets: [
+              {
+                label: "Totale €",
+                data: values,
+                backgroundColor: "#f7c948",
+                borderColor: "#c38e00",
+                borderWidth: 1,
+              },
+            ],
+          },
+          options: {
+            scales: {
+              y: {
+                beginAtZero: true,
+              },
+            },
+          },
+        });
+      }
+
+      function updatePaymentsChart(payments) {
+        const labels = payments.map(entry => entry.method);
+        const values = payments.map(entry => entry.count);
+        if (paymentsChart) {
+          paymentsChart.data.labels = labels;
+          paymentsChart.data.datasets[0].data = values;
+          paymentsChart.update();
+          return;
+        }
+        paymentsChart = new Chart(paymentsCtx, {
+          type: "bar",
+          data: {
+            labels,
+            datasets: [
+              {
+                label: "Numero pagamenti",
+                data: values,
+                backgroundColor: "#4caf50",
+                borderColor: "#2e7d32",
+                borderWidth: 1,
+              },
+            ],
+          },
+          options: {
+            scales: {
+              y: {
+                beginAtZero: true,
+              },
+            },
+          },
+        });
+      }
+
+      fetchDashboard();
+      setInterval(fetchDashboard, REFRESH_MS);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Admin Login</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: Arial, Helvetica, sans-serif;
+        background: #f5f5f5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+      }
+      .card {
+        background: #ffffff;
+        border-radius: 14px;
+        padding: 2rem;
+        box-shadow: 0 12px 30px rgba(30, 20, 15, 0.15);
+        width: min(360px, 90vw);
+      }
+      h1 {
+        margin: 0 0 1.5rem;
+        text-align: center;
+        color: #3e2723;
+      }
+      label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.35rem;
+        color: #4e342e;
+      }
+      input[type="text"],
+      input[type="password"] {
+        width: 100%;
+        padding: 0.6rem 0.75rem;
+        border-radius: 8px;
+        border: 1px solid rgba(78, 52, 46, 0.2);
+        margin-bottom: 1rem;
+        font-size: 1rem;
+      }
+      button {
+        width: 100%;
+        padding: 0.75rem;
+        border: none;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #4e342e, #3e2723);
+        color: #ffffff;
+        font-weight: 600;
+        font-size: 1rem;
+        cursor: pointer;
+      }
+      button:hover {
+        opacity: 0.92;
+      }
+      .error {
+        margin-bottom: 1rem;
+        padding: 0.75rem;
+        border-radius: 8px;
+        background: rgba(229, 57, 53, 0.12);
+        color: #7d1916;
+        font-size: 0.95rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Accesso admin</h1>
+      {% if error %}
+      <div class="error">{{ error }}</div>
+      {% endif %}
+      <form method="post" action="/admin/login">
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" required autocomplete="username" />
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" required autocomplete="current-password" />
+        <button type="submit">Accedi</button>
+      </form>
+    </div>
+  </body>
+</html>

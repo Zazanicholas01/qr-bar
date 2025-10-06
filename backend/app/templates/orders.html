@@ -138,11 +138,17 @@
   </head>
   <body>
     <header>
-      <h1>Orders Dashboard</h1>
-      <p>Visualizza e gestisci gli ordini ricevuti dal menu digitale.</p>
+      <div>
+        <h1>Orders Dashboard</h1>
+        <p>Visualizza e gestisci gli ordini ricevuti dal menu digitale.</p>
+      </div>
+      <form method="post" action="/admin/logout" style="margin: 0;">
+        <button type="submit" class="history-link" style="background:#c62828;">Logout</button>
+      </form>
     </header>
     <main>
-      <div style="display: flex; justify-content: flex-end;">
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <a href="/admin/dashboard" class="history-link">Dashboard</a>
         <a href="/admin/orders/closed" class="history-link">Storico ordini chiusi</a>
       </div>
       {% if orders %}
