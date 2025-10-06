@@ -51,13 +51,6 @@ PAYMENT_METHODS = [
     "other",
 ]
 
-PAYMENT_METHODS = [
-    "cash",
-    "card",
-    "mobile",
-    "other",
-]
-
 
 def _column_exists(connection, table: str, column: str) -> bool:
     result = connection.execute(
@@ -71,6 +64,8 @@ def _column_exists(connection, table: str, column: str) -> bool:
 
 
 def _ensure_schema() -> None:
+
+    # Create or migrate schema as needed
     engine = get_engine()
     with engine.begin() as connection:
         connection.execute(
@@ -85,6 +80,7 @@ def _ensure_schema() -> None:
                 """
             )
         )
+        # Migrate existing schema if needed
         connection.execute(
             text("ALTER TABLE users ADD COLUMN IF NOT EXISTS table_code VARCHAR(80);")
         )
@@ -170,16 +166,21 @@ def _ensure_schema() -> None:
 def on_startup() -> None:
     _ensure_schema()
 
+
 @app.get("/")
 async def root():
     return {"message": "Welcome to the Bar API"}
 
+
 def get_host_ip():
     """Returns the IP/hostname reachable by clients scanning the QR code."""
+
+    # Check for explicit override
     override = os.environ.get("FRONTEND_HOST")
     if override:
         return override
 
+    # Attempt to determine local IP address
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         s.connect(("8.8.8.8", 80))  # dummy connection to extract local address
@@ -188,12 +189,16 @@ def get_host_ip():
         s.close()
     return ip
 
+
 @app.get("/qrcode", response_class=HTMLResponse)
 def generate_qrcodes(db: Session = Depends(get_db)):
+
+    # Determine the base URL for the QR codes
     ip = get_host_ip()
     port = os.environ.get("FRONTEND_PORT", "3000")
     base_url = f"http://{ip}:{port}"
 
+    # Ensure at least 10 tables exist
     tables = db.query(models.Table).order_by(models.Table.code.asc()).all()
 
     if not tables:
@@ -202,6 +207,7 @@ def generate_qrcodes(db: Session = Depends(get_db)):
         db.commit()
         tables = default_tables
 
+    # Generate QR codes for each table
     qrs: list[tuple[str, str, str, str]] = []
 
     for table in tables:
@@ -211,6 +217,7 @@ def generate_qrcodes(db: Session = Depends(get_db)):
         encoded = base64.b64encode(buf.getvalue()).decode("ascii")
         qrs.append((table.code, table.name or table.code, table_url, encoded))
 
+    # Create simple HTML content to display the QR codes
     html_parts = [
         "<html><head><title>QR Table Codes</title>",
         "<style>body{font-family:Arial;margin:2rem;background:#f5f5f5;}",
@@ -243,13 +250,18 @@ def generate_qrcodes(db: Session = Depends(get_db)):
 
 
 def _bootstrap_admin() -> None:
+
+    # If username or password missing, do nothing
     username = os.environ.get("ADMIN_USERNAME")
     password = os.environ.get("ADMIN_PASSWORD")
     if not username or not password:
         return
 
+    # Hash the password 
     engine = get_engine()
     password_hash = security.hash_password(password)
+
+    # Open a DB connection to check if user already exists
     with engine.begin() as connection:
         existing = connection.execute(
             text("SELECT 1 FROM staff_users WHERE username = :username"),
@@ -257,6 +269,8 @@ def _bootstrap_admin() -> None:
         ).first()
         if existing:
             return
+        
+        # If not exists, create the admin user
         connection.execute(
             text(
                 "INSERT INTO staff_users (username, password_hash, role, created_at) "
@@ -280,6 +294,8 @@ def login_submit(
     password: str = Form(...),
     db: Session = Depends(get_db),
 ):
+    
+    # If wrong credentials, show error
     user = db.query(models.StaffUser).filter(models.StaffUser.username == username).first()
     if not user or not security.verify_password(password, user.password_hash):
         return templates.TemplateResponse(
@@ -288,6 +304,7 @@ def login_submit(
             status_code=400,
         )
 
+    # If correct, set session cookie and redirect to orders page
     response = RedirectResponse(url="/admin/orders", status_code=303)
     security.set_admin_session(response, user)
     return response
@@ -302,14 +319,20 @@ def logout(request: Request):
 
 @app.get("/admin/orders", response_class=HTMLResponse)
 def list_orders_admin(request: Request, db: Session = Depends(get_db)):
+    
+    # Session cookie check
     if not security.get_admin_from_request(request, db):
         return RedirectResponse(url="/admin/login", status_code=303)
+    
+    # List of non-closed orders
     orders = (
         db.query(models.Order)
         .filter(models.Order.status != "closed")
         .order_by(models.Order.created_at.desc())
         .all()
     )
+
+    # Renders orders.html template
     return templates.TemplateResponse(
         "orders.html",
         {
@@ -322,6 +345,8 @@ def list_orders_admin(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/admin/dashboard", response_class=HTMLResponse)
 def admin_dashboard(request: Request, db: Session = Depends(get_db)):
+    
+    # Renders dashboard.html template
     if not security.get_admin_from_request(request, db):
         return RedirectResponse(url="/admin/login", status_code=303)
     return templates.TemplateResponse("dashboard.html", {"request": request})
@@ -335,13 +360,17 @@ def delete_order_admin(
 ):
     if not security.get_admin_from_request(request, db):
         return RedirectResponse(url="/admin/login", status_code=303)
+    
+    # Checks whether the order exists
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if order is None:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    # Deletes from DB
     db.delete(order)
     db.commit()
 
+    # Redirects to refresh changes
     return RedirectResponse(url="/admin/orders", status_code=303)
 
 
@@ -353,10 +382,13 @@ def mark_order_processed(
 ):
     if not security.get_admin_from_request(request, db):
         return RedirectResponse(url="/admin/login", status_code=303)
+    
+    # Search for the order
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if order is None:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    # Change status, commit and refresh
     order.status = "processed"
     db.commit()
 
@@ -372,14 +404,18 @@ def mark_order_checkout(
 ):
     if not security.get_admin_from_request(request, db):
         return RedirectResponse(url="/admin/login", status_code=303)
+    
+    # Search for the order
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if order is None:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    # Validate payment method
     method = payment_method.strip().lower()
     if method not in PAYMENT_METHODS:
         raise HTTPException(status_code=400, detail="Unsupported payment method")
 
+    # Mark order as closed and create transaction record on the DB
     order.status = "closed"
     if order.transaction:
         order.transaction.method = method
@@ -461,6 +497,8 @@ def list_closed_orders(
 ):
     if not security.get_admin_from_request(request, db):
         return RedirectResponse(url="/admin/login", status_code=303)
+
+    # Date parsing or default today
     try:
         if day:
             target_date = datetime.strptime(day, "%Y-%m-%d")
@@ -469,9 +507,11 @@ def list_closed_orders(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
 
+    # Set start and end for the selected day
     start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
     end = start + timedelta(days=1)
 
+    # Query closed orders created between start and end
     orders = (
         db.query(models.Order)
         .filter(
@@ -485,6 +525,7 @@ def list_closed_orders(
 
     selected_day = start.strftime("%Y-%m-%d")
 
+    # Renders orders_closed.html template
     return templates.TemplateResponse(
         "orders_closed.html",
         {
