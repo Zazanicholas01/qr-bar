@@ -47,3 +47,15 @@ export async function autoLogin(tableId) {
 
   return handleResponse(response);
 }
+
+export async function updateUser(userId, payload) {
+  const response = await fetch(`${API_BASE}/users/${userId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return handleResponse(response);
+}

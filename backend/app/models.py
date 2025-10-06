@@ -33,7 +33,9 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(120), nullable=False)
-    email = Column(String(200), unique=True, nullable=True)
+    email = Column(String(200), nullable=True)
+    phone = Column(String(30), nullable=True)
+    age = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     table_ref_id = Column(Integer, ForeignKey("tables.id", ondelete="SET NULL"), nullable=True)
     table_code = Column(String(80), nullable=True)

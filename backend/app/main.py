@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -34,6 +35,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 app.include_router(menu.router, prefix="/api/menu", tags=["Menu"])
 app.include_router(tables.router, prefix="/api/tables", tags=["Tables"])
@@ -87,6 +90,12 @@ def _ensure_schema() -> None:
         )
         connection.execute(
             text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS table_code VARCHAR(80);")
+        )
+        connection.execute(
+            text("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(30);")
+        )
+        connection.execute(
+            text("ALTER TABLE users ADD COLUMN IF NOT EXISTS age INTEGER;")
         )
         if _column_exists(connection, "users", "table_id"):
             connection.execute(

@@ -310,6 +310,69 @@ header h1 {
   cursor: not-allowed;
 }
 
+.info-card {
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 18px;
+  padding: 1.5rem;
+  border: 1px solid rgba(78, 52, 46, 0.1);
+  box-shadow: 0 10px 24px rgba(30, 20, 15, 0.15);
+  margin-bottom: 1.75rem;
+}
+
+.info-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.info-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.info-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: var(--color-dark-brown);
+}
+
+.info-form input {
+  border-radius: 10px;
+  border: 1px solid rgba(78, 52, 46, 0.2);
+  padding: 0.6rem 0.75rem;
+  font-size: 1rem;
+}
+
+.info-save {
+  justify-self: start;
+  border: none;
+  border-radius: 999px;
+  padding: 0.6rem 1.4rem;
+  background: linear-gradient(135deg, var(--color-brown), var(--color-dark-brown));
+  color: var(--color-white);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.info-feedback {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  font-size: 0.95rem;
+}
+
+.info-feedback-success {
+  background: rgba(76, 175, 80, 0.15);
+  color: #255b29;
+}
+
+.info-feedback-error {
+  background: rgba(229, 57, 53, 0.15);
+  color: #7d1916;
+}
+
 .status-card {
   background: rgba(247, 201, 72, 0.15);
   border-radius: 14px;

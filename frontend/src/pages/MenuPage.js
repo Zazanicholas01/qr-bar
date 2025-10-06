@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useCart } from "../context/CartContext";
-import { autoLogin, submitOrder } from "../api";
+import { autoLogin, submitOrder, updateUser } from "../api";
 
 function MenuPage() {
   const { tableId } = useParams();
@@ -19,6 +19,9 @@ function MenuPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderFeedback, setOrderFeedback] = useState(null);
   const [userId, setUserId] = useState(null);
+  const [userInfo, setUserInfo] = useState({ name: "", email: "", phone: "", age: "" });
+  const [isSavingInfo, setIsSavingInfo] = useState(false);
+  const [infoFeedback, setInfoFeedback] = useState(null);
   const [userError, setUserError] = useState(null);
   const [isAuthenticating, setIsAuthenticating] = useState(true);
 
@@ -58,6 +61,12 @@ function MenuPage() {
       .then(user => {
         if (isMounted) {
           setUserId(user.id);
+          setUserInfo({
+            name: user.name || "",
+            email: user.email || "",
+            phone: user.phone || "",
+            age: user.age != null ? String(user.age) : "",
+          });
         }
       })
       .catch(err => {
@@ -174,6 +183,46 @@ function MenuPage() {
     }
   };
 
+  const handleInfoChange = event => {
+    const { name, value } = event.target;
+    setUserInfo(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleInfoSubmit = async event => {
+    event.preventDefault();
+    if (!userId) {
+      return;
+    }
+    setIsSavingInfo(true);
+    setInfoFeedback(null);
+    try {
+      const payload = {};
+      if (userInfo.name.trim()) payload.name = userInfo.name.trim();
+      if (userInfo.email.trim()) payload.email = userInfo.email.trim();
+      if (userInfo.phone.trim()) payload.phone = userInfo.phone.trim();
+      if (userInfo.age.trim()) {
+        const ageNumber = Number.parseInt(userInfo.age, 10);
+        if (!Number.isNaN(ageNumber)) {
+          payload.age = ageNumber;
+        }
+      }
+
+      if (Object.keys(payload).length === 0) {
+        setInfoFeedback({ type: "error", message: "Inserisci almeno un dato." });
+      } else {
+        await updateUser(userId, payload);
+        setInfoFeedback({ type: "success", message: "Dati salvati." });
+      }
+    } catch (err) {
+      setInfoFeedback({
+        type: "error",
+        message: err.message || "Impossibile salvare i dati.",
+      });
+    } finally {
+      setIsSavingInfo(false);
+    }
+  };
+
   return (
     <>
       <header>
@@ -183,6 +232,67 @@ function MenuPage() {
         </p>
       </header>
       <section className="main-content">
+        <article className="info-card">
+          <h2>I tuoi dati (opzionali)</h2>
+          <p style={{ marginBottom: "1rem", color: "rgba(27, 27, 27, 0.7)" }}>
+            Inserisci i tuoi dati per un servizio più rapido. Puoi saltare questo passaggio se preferisci restare anonimo.
+          </p>
+          <form className="info-form" onSubmit={handleInfoSubmit}>
+            <div className="info-grid">
+              <label>
+                Nome
+                <input
+                  type="text"
+                  name="name"
+                  value={userInfo.name}
+                  onChange={handleInfoChange}
+                  placeholder="Nome e cognome"
+                />
+              </label>
+              <label>
+                Email
+                <input
+                  type="email"
+                  name="email"
+                  value={userInfo.email}
+                  onChange={handleInfoChange}
+                  placeholder="email@example.com"
+                />
+              </label>
+              <label>
+                Telefono
+                <input
+                  type="tel"
+                  name="phone"
+                  value={userInfo.phone}
+                  onChange={handleInfoChange}
+                  placeholder="Numero di telefono"
+                />
+              </label>
+              <label>
+                Età
+                <input
+                  type="number"
+                  name="age"
+                  min="0"
+                  max="120"
+                  value={userInfo.age}
+                  onChange={handleInfoChange}
+                  placeholder="Età"
+                />
+              </label>
+            </div>
+            {infoFeedback && (
+              <p className={`info-feedback info-feedback-${infoFeedback.type}`}>
+                {infoFeedback.message}
+              </p>
+            )}
+            <button type="submit" className="info-save" disabled={isSavingInfo || !userId}>
+              {isSavingInfo ? "Salvataggio..." : "Salva i miei dati"}
+            </button>
+          </form>
+        </article>
+
         <div className="status-card">
           Seleziona un&apos;esperienza dal nostro bancone virtuale. Ordinazioni
           disponibili direttamente dall&apos;app.

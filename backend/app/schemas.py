@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-from pydantic import BaseModel, Field, PositiveInt, ConfigDict
+from pydantic import BaseModel, Field, PositiveInt, ConfigDict, EmailStr
 
 DECIMAL_ENCODERS = {Decimal: float}
 
@@ -23,6 +23,8 @@ class UserRead(BaseModel):
     id: int
     name: str | None = None
     email: str | None = None
+    phone: str | None = None
+    age: int | None = None
     created_at: datetime
     table_code: str | None = None
     table: TableRead | None = None
@@ -83,3 +85,10 @@ class OrderRead(BaseModel):
 
 class OrderStatusUpdate(BaseModel):
     status: str = Field(pattern="^(pending|processed|closed)$")
+
+
+class UserUpdate(BaseModel):
+    name: str | None = None
+    email: EmailStr | None = None
+    phone: str | None = None
+    age: int | None = Field(default=None, ge=0, le=120)

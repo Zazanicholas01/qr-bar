@@ -43,3 +43,22 @@ async def auto_login(table_id: str | None = None, db: Session = Depends(get_db))
 async def list_users(db: Session = Depends(get_db)):
     users = db.query(models.User).order_by(models.User.created_at.desc()).all()
     return users
+
+
+@router.put("/{user_id}", response_model=schemas.UserRead)
+async def update_user(
+    user_id: int,
+    payload: schemas.UserUpdate,
+    db: Session = Depends(get_db),
+):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    updates = payload.model_dump(exclude_unset=True)
+    for field, value in updates.items():
+        setattr(user, field, value)
+
+    db.commit()
+    db.refresh(user)
+    return user
