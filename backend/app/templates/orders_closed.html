@@ -7,13 +7,28 @@
       body {
         font-family: Arial, Helvetica, sans-serif;
         margin: 0;
-        background: #f2f0ec;
+        background:
+          radial-gradient(1200px 600px at 10% -10%, rgba(247, 201, 72, 0.08), transparent 60%),
+          radial-gradient(1000px 500px at 120% 0%, rgba(78, 52, 46, 0.08), transparent 55%),
+          radial-gradient(circle at top, #fff8ec, #f5ede1 60%);
         color: #3e2723;
       }
       header {
         background: linear-gradient(135deg, #3e2723, #1b1b1b);
         color: #ffffff;
         padding: 1.5rem 2rem;
+        position: relative;
+        box-shadow: 0 8px 20px rgba(30,20,15,0.25);
+      }
+      header::after {
+        content: "";
+        position: absolute;
+        left: 0; right: 0; bottom: -12px; height: 24px;
+        background: radial-gradient(60px 12px at 10% 0, rgba(62,39,35,0.25), transparent 70%),
+                    radial-gradient(80px 16px at 40% 0, rgba(62,39,35,0.18), transparent 70%),
+                    radial-gradient(60px 12px at 70% 0, rgba(62,39,35,0.22), transparent 70%),
+                    radial-gradient(80px 16px at 100% 0, rgba(62,39,35,0.15), transparent 70%);
+        filter: blur(4px);
       }
       main {
         padding: 2rem;
@@ -45,10 +60,12 @@
         width: 100%;
         border-collapse: collapse;
         margin-top: 1.5rem;
-        background: #ffffff;
+        background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.92));
         border-radius: 14px;
         overflow: hidden;
-        box-shadow: 0 10px 24px rgba(30, 20, 15, 0.15);
+        box-shadow: 0 14px 30px rgba(30, 20, 15, 0.16);
+        border: 1px solid rgba(78, 52, 46, 0.12);
+        backdrop-filter: saturate(115%) blur(4px);
       }
       th,
       td {
@@ -58,7 +75,7 @@
         text-align: left;
       }
       th {
-        background: rgba(78, 52, 46, 0.08);
+        background: linear-gradient(180deg, rgba(78, 52, 46, 0.12), rgba(78, 52, 46, 0.06));
         font-size: 0.95rem;
         text-transform: uppercase;
         letter-spacing: 0.06em;
@@ -73,10 +90,12 @@
       .empty-state {
         margin-top: 2rem;
         padding: 2rem;
-        background: #ffffff;
+        background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.9));
         border-radius: 16px;
         text-align: center;
-        box-shadow: 0 10px 24px rgba(30, 20, 15, 0.12);
+        box-shadow: 0 14px 30px rgba(30, 20, 15, 0.16);
+        border: 1px solid rgba(78, 52, 46, 0.12);
+        backdrop-filter: saturate(115%) blur(6px);
       }
       a.back-link {
         display: inline-flex;

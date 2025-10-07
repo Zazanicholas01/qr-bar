@@ -7,23 +7,32 @@
       body {
         margin: 0;
         font-family: Arial, Helvetica, sans-serif;
-        background: #f5f5f5;
+        background:
+          radial-gradient(1200px 600px at 10% -10%, rgba(247, 201, 72, 0.08), transparent 60%),
+          radial-gradient(1000px 500px at 120% 0%, rgba(78, 52, 46, 0.08), transparent 55%),
+          radial-gradient(circle at top, #fff8ec, #f5ede1 60%);
         display: flex;
         align-items: center;
         justify-content: center;
-        height: 100vh;
+        min-height: 100vh;
+        color: #3e2723;
       }
       .card {
-        background: #ffffff;
-        border-radius: 14px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.92));
+        border-radius: 16px;
         padding: 2rem;
-        box-shadow: 0 12px 30px rgba(30, 20, 15, 0.15);
+        box-shadow: 0 16px 36px rgba(30, 20, 15, 0.18);
         width: min(360px, 90vw);
+        border: 1px solid rgba(78, 52, 46, 0.12);
+        backdrop-filter: saturate(115%) blur(6px);
       }
       h1 {
         margin: 0 0 1.5rem;
         text-align: center;
-        color: #3e2723;
+        background: linear-gradient(180deg, #3e2723, #6d4c41);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
       }
       label {
         display: block;
@@ -50,9 +59,13 @@
         font-weight: 600;
         font-size: 1rem;
         cursor: pointer;
+        box-shadow: 0 10px 22px rgba(30, 20, 15, 0.18);
+        transition: transform 150ms ease, box-shadow 150ms ease, filter 150ms ease;
       }
       button:hover {
-        opacity: 0.92;
+        transform: translateY(-2px);
+        box-shadow: 0 14px 30px rgba(30, 20, 15, 0.22);
+        filter: brightness(1.03);
       }
       .error {
         margin-bottom: 1rem;
