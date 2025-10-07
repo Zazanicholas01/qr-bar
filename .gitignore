@@ -21,3 +21,6 @@ frontend/build/
 # Virtual Environments
 venv/
 backend/backend-venv/
+
+# Wireguard Configs
+wireguard/
