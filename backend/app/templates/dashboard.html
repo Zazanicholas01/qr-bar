@@ -93,7 +93,23 @@
         color: #ffffff;
         font-weight: 600;
       }
+      /* Radial Admin Menu */
+      .admin-menu { position: fixed; right: 24px; bottom: 24px; z-index: 1000; }
+      .admin-menu .main { position: relative; display: flex; justify-content: center; align-items: center; width: 188px; height: 188px; background-color: rgba(255,255,255,0.21); border-radius: 14px; backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,0.18); box-shadow: 0 20px 30px -10px rgba(38,57,77,0.35); }
+      .admin-menu .navigation { position: relative; width: 44px; height: 44px; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: 0.5s; }
+      .admin-menu .navigation span { position: absolute; width: 8px; height: 8px; background: #fff; transform: translate(calc(14px * var(--x)), calc(14px * var(--y))); transition: transform 0.5s, width 0.5s, height 0.5s, background 0.5s, border-radius 0.5s; transition-delay: calc(0.06s * var(--i)); display: flex; justify-content: center; align-items: center; border-radius: 4px; border: 1px solid rgba(78,52,46,0.15); box-shadow: 0 6px 16px rgba(30,20,15,0.18); }
+      .admin-menu .navigation span a { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: #fff; text-decoration: none; }
+      .admin-menu .navigation.active span { width: 48px; height: 48px; background: rgba(62,39,35,0.92); transform: translate(calc(60px * var(--x)), calc(60px * var(--y))); border-radius: 10px; border: 1px solid rgba(255,255,255,0.35); }
+      .admin-menu .navigation span ion-icon { transition: 0.5s; font-size: 0em; color: #fff; }
+      .admin-menu .navigation.active span ion-icon { font-size: 1.35em; }
+      .admin-menu .navigation.active span:hover ion-icon { color: #f7c948; filter: drop-shadow(0 0 2px #f7c948) drop-shadow(0 0 5px #f7c948) drop-shadow(0 0 12px #f7c948); }
+      .admin-menu .close { position: absolute; width: 8px; height: 8px; background: #fff; transition: 0.5s; transition-delay: 0.35s; pointer-events: none; display: flex; justify-content: center; align-items: center; border-radius: 4px; }
+      .admin-menu .navigation.active ~ .close { width: 44px; height: 44px; pointer-events: initial; transition-delay: 0.75s; background: #f7c948; border-radius: 10px; box-shadow: 0 10px 22px rgba(30,20,15,0.22); }
+      .admin-menu .navigation ~ .close ion-icon { font-size: 2em; scale: 0; color: #3e2723; transition: 0.5s; }
+      .admin-menu .navigation.active ~ .close ion-icon { scale: 1; transition-delay: 1s; }
     </style>
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
   </head>
   <body>
     <header>
@@ -223,6 +239,35 @@
 
       fetchDashboard();
       setInterval(fetchDashboard, REFRESH_MS);
+    </script>
+    <div class="admin-menu">
+      <div class="main">
+        <div class="navigation" aria-label="Admin navigation" title="Menu">
+          <span style="--i: 0; --x: 0; --y: -1"><a href="/admin/orders/closed" title="Ordini chiusi"><ion-icon name="time-outline"></ion-icon></a></span>
+          <span style="--i: 1; --x: 1; --y: 0"><a href="/admin/dashboard" title="Dashboard"><ion-icon name="speedometer-outline"></ion-icon></a></span>
+          <span style="--i: 2; --x: -1; --y: 0"><a href="/admin/" title="Home staff"><ion-icon name="home-outline"></ion-icon></a></span>
+          <span style="--i: 3; --x: -1; --y: 1"><a href="/admin/login" title="Login"><ion-icon name="log-in-outline"></ion-icon></a></span>
+          <span style="--i: 4; --x: 1; --y: 1"><a href="#" id="admin-logout-link" title="Logout"><ion-icon name="log-out-outline"></ion-icon></a></span>
+        </div>
+        <div class="close" aria-label="Chiudi" title="Chiudi"><ion-icon name="close-outline"></ion-icon></div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        const navigation = document.querySelector('.admin-menu .navigation');
+        const closeBtn = document.querySelector('.admin-menu .close');
+        const logoutLink = document.getElementById('admin-logout-link');
+        if (navigation) navigation.addEventListener('click', () => navigation.classList.add('active'));
+        if (closeBtn) closeBtn.addEventListener('click', (e) => { e.stopPropagation(); navigation.classList.remove('active'); });
+        if (logoutLink) {
+          logoutLink.addEventListener('click', async (e) => {
+            e.preventDefault();
+            try { await fetch('/admin/logout', { method: 'POST', credentials: 'same-origin' }); }
+            finally { window.location.href = '/admin/login'; }
+          });
+        }
+      })();
     </script>
   </body>
 </html>
