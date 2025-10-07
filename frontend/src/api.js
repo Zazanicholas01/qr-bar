@@ -1,11 +1,20 @@
 const API_HOST = process.env.REACT_APP_API_HOST || window.location.hostname;
 const envPort = process.env.REACT_APP_API_PORT;
-const API_PORT = envPort === undefined ? "8000" : envPort;
 const API_PROTOCOL =
   process.env.REACT_APP_API_PROTOCOL ||
   (typeof window !== "undefined" && window.location.protocol ? window.location.protocol : "http:");
 
-const portSegment = API_PORT ? `:${API_PORT}` : "";
+// Prefer explicit env port; otherwise use the current location's port (often empty on 80/443)
+const detectedPort = typeof window !== "undefined" ? window.location.port : "";
+const API_PORT = envPort !== undefined ? envPort : detectedPort;
+
+// Omit standard ports for scheme to keep same-origin requests
+const isDefaultPort =
+  !API_PORT ||
+  (API_PROTOCOL.startsWith("https") && API_PORT === "443") ||
+  (API_PROTOCOL.startsWith("http") && API_PORT === "80");
+const portSegment = isDefaultPort ? "" : `:${API_PORT}`;
+
 const API_BASE = `${API_PROTOCOL}//${API_HOST}${portSegment}/api`;
 
 async function handleResponse(response) {

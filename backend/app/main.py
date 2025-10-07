@@ -20,6 +20,7 @@ templates = Jinja2Templates(directory="app/templates")
 
 frontend_host = os.environ.get("FRONTEND_HOST", "localhost")
 frontend_port = os.environ.get("FRONTEND_PORT", "3000")
+frontend_public_url = os.environ.get("FRONTEND_PUBLIC_URL")
 
 allowed_origins = {
     f"http://{frontend_host}:{frontend_port}",
@@ -194,9 +195,20 @@ def get_host_ip():
 def generate_qrcodes(db: Session = Depends(get_db)):
 
     # Determine the base URL for the QR codes
-    ip = get_host_ip()
-    port = os.environ.get("FRONTEND_PORT", "3000")
-    base_url = f"http://{ip}:{port}"
+    if frontend_public_url:
+        base_url = frontend_public_url.rstrip("/")
+    else:
+        ip = get_host_ip()
+        scheme = os.environ.get("FRONTEND_SCHEME", "https")
+        port = os.environ.get("FRONTEND_PUBLIC_PORT")
+        # Default ports by scheme
+        if not port:
+            port = "443" if scheme == "https" else "80"
+        # Omit port for standard ports
+        if (scheme == "https" and port == "443") or (scheme == "http" and port == "80"):
+            base_url = f"{scheme}://{ip}"
+        else:
+            base_url = f"{scheme}://{ip}:{port}"
 
     # Ensure at least 10 tables exist
     tables = db.query(models.Table).order_by(models.Table.code.asc()).all()
@@ -278,6 +290,16 @@ def _bootstrap_admin() -> None:
             ),
             {"username": username, "password_hash": password_hash, "role": "admin"},
         )
+
+
+@app.get("/admin/", response_class=HTMLResponse)
+def admin_welcome(request: Request, db: Session = Depends(get_db)):
+    """Simple welcome page for staff: link to login or orders if authenticated."""
+    admin = security.get_admin_from_request(request, db)
+    return templates.TemplateResponse(
+        "admin_welcome.html",
+        {"request": request, "admin": admin},
+    )
 
 
 @app.get("/admin/login", response_class=HTMLResponse)

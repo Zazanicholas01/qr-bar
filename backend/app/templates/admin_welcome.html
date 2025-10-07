@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <title>Area Staff</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0;
+        font-family: Arial, Helvetica, sans-serif;
+        background: #f5f5f5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+      }
+      .card {
+        background: #ffffff;
+        border-radius: 14px;
+        padding: 2rem;
+        box-shadow: 0 12px 30px rgba(30, 20, 15, 0.15);
+        width: min(560px, 92vw);
+        text-align: center;
+      }
+      h1 { margin: 0 0 0.5rem; color: #3e2723; }
+      p { margin: 0.25rem 0 1.25rem; color: #4e342e; }
+      .actions { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+      a.button {
+        display: inline-block;
+        padding: 0.7rem 1.1rem;
+        border-radius: 999px;
+        text-decoration: none;
+        background: linear-gradient(135deg, #4e342e, #3e2723);
+        color: #fff;
+        font-weight: 600;
+      }
+      .muted { color: #6d4c41; font-size: 0.95rem; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Area Staff</h1>
+      {% if admin %}
+        <p class="muted">Benvenuto, <strong>{{ admin.username }}</strong>.</p>
+        <div class="actions">
+          <a class="button" href="/admin/orders">Vai agli ordini</a>
+          <form method="post" action="/admin/logout" style="margin:0; display:inline;">
+            <button type="submit" class="button" style="background: #7b1fa2; border: none; cursor: pointer;">Esci</button>
+          </form>
+        </div>
+      {% else %}
+        <p>Benvenuto nell'area riservata allo staff.</p>
+        <p class="muted">Per gestire gli ordini accedi con le tue credenziali.</p>
+        <div class="actions">
+          <a class="button" href="/admin/login">Accedi</a>
+        </div>
+      {% endif %}
+    </div>
+  </body>
+  </html>
+

@@ -27,13 +27,18 @@ function MenuPage() {
 
   const apiHost = process.env.REACT_APP_API_HOST || window.location.hostname;
   const envPort = process.env.REACT_APP_API_PORT;
-  const apiPort = envPort === undefined ? "8000" : envPort;
   const apiProtocol =
     process.env.REACT_APP_API_PROTOCOL ||
     (typeof window !== "undefined" && window.location.protocol
       ? window.location.protocol
       : "http:");
-  const portSegment = apiPort ? `:${apiPort}` : "";
+  const detectedPort = typeof window !== "undefined" ? window.location.port : "";
+  const apiPort = envPort !== undefined ? envPort : detectedPort;
+  const isDefaultPort =
+    !apiPort ||
+    (apiProtocol.startsWith("https") && apiPort === "443") ||
+    (apiProtocol.startsWith("http") && apiPort === "80");
+  const portSegment = isDefaultPort ? "" : `:${apiPort}`;
   const menuUrl = `${apiProtocol}//${apiHost}${portSegment}/api/menu?table_id=${tableId}`;
 
   useEffect(() => {
