@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from app.routers import menu, orders, simulator, tables, users
+from app.routers import ai
 from app.database import Base, get_db, get_engine
 from sqlalchemy import text
 from app import models, security
@@ -44,6 +45,7 @@ app.include_router(tables.router, prefix="/api/tables", tags=["Tables"])
 app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(simulator.router, prefix="/api/simulator", tags=["Simulator"])
+app.include_router(ai.router, prefix="/api/ai", tags=["AI"])
 
 PAYMENT_METHODS = [
     "cash",
@@ -223,7 +225,7 @@ def generate_qrcodes(db: Session = Depends(get_db)):
     qrs: list[tuple[str, str, str, str]] = []
 
     for table in tables:
-        table_url = f"{base_url}/table/{table.code}"
+        table_url = f"{base_url}:8443/table/{table.code}"
         buf = io.BytesIO()
         qrcode.make(table_url).save(buf, format="PNG")
         encoded = base64.b64encode(buf.getvalue()).decode("ascii")

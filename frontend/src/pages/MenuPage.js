@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useCart } from "../context/CartContext";
-import { autoLogin, submitOrder, updateUser } from "../api";
+import { autoLogin, submitOrder, updateUser, searchMenu as searchMenuApi, fetchItemTags } from "../api";
 
 function MenuPage() {
   const { tableId } = useParams();
@@ -24,6 +24,12 @@ function MenuPage() {
   const [infoFeedback, setInfoFeedback] = useState(null);
   const [userError, setUserError] = useState(null);
   const [isAuthenticating, setIsAuthenticating] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState(null);
+  const [metaById, setMetaById] = useState(new Map());
+  const [filters, setFilters] = useState([]);
 
   const apiHost = process.env.REACT_APP_API_HOST || window.location.hostname;
   const envPort = process.env.REACT_APP_API_PORT;
@@ -55,6 +61,42 @@ function MenuPage() {
       .then(data => setMenu(data))
       .catch(err => setError(err.message));
   }, [menuUrl, tableId]);
+
+  // Fetch item metadata (tags/allergens/ingredients) once
+  useEffect(() => {
+    let mounted = true;
+    fetchItemTags()
+      .then(data => {
+        if (!mounted) return;
+        const map = new Map();
+        (data.items || []).forEach(item => {
+          map.set(item.id, item);
+        });
+        setMetaById(map);
+      })
+      .catch(() => {})
+    return () => { mounted = false; };
+  }, []);
+
+  // Debounced NLP search
+  useEffect(() => {
+    let timerId;
+    setSearchError(null);
+    if (!searchQuery || searchQuery.trim().length < 2) {
+      setSearchResults([]);
+      return undefined;
+    }
+    setIsSearching(true);
+    timerId = setTimeout(() => {
+      searchMenuApi(searchQuery.trim(), 8)
+        .then(data => {
+          setSearchResults(data.results || []);
+        })
+        .catch(err => setSearchError(err.message || "Errore ricerca"))
+        .finally(() => setIsSearching(false));
+    }, 300);
+    return () => clearTimeout(timerId);
+  }, [searchQuery]);
 
   useEffect(() => {
     let isMounted = true;
@@ -158,6 +200,43 @@ function MenuPage() {
 
   const formatPrice = value => value.toFixed(2);
 
+  // Filter helpers (AND semantics over selected tags)
+  const selectedTags = new Set(filters);
+  const resultMatchesFilters = (result) => {
+    if (selectedTags.size === 0) return true;
+    const tags = Array.isArray(result.tags) ? result.tags : [];
+    for (const t of selectedTags) {
+      if (!tags.includes(t)) return false;
+    }
+    return true;
+  };
+
+  const itemMatchesFilters = (itemId) => {
+    if (selectedTags.size === 0) return true;
+    const meta = metaById.get(itemId);
+    if (!meta) return false;
+    const tags = Array.isArray(meta.tags) ? meta.tags : [];
+    for (const t of selectedTags) {
+      if (!tags.includes(t)) return false;
+    }
+    return true;
+  };
+
+  const FILTER_OPTIONS = [
+    { key: "analcolico", label: "Analcolico" },
+    { key: "alcolico", label: "Alcolico" },
+    { key: "senza-glutine", label: "Senza glutine" },
+    { key: "vegano", label: "Vegano" },
+    { key: "vegetariano", label: "Vegetariano" },
+    { key: "caffeina", label: "Caffeina" },
+    { key: "frizzante", label: "Frizzante" },
+    { key: "agrumato", label: "Agrumato" },
+  ];
+
+  const toggleFilter = (key) => {
+    setFilters(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+  };
+
   const handleCheckout = async () => {
     if (cartItems.length === 0 || isSubmitting) {
       return;
@@ -235,8 +314,70 @@ function MenuPage() {
         <p style={{ marginTop: "0.35rem", opacity: 0.8 }}>
           Tavolo {menu.table_id}
         </p>
+        <div style={{ marginTop: "1rem" }}>
+          <input
+            type="search"
+            placeholder="Cerca (es. agrumato, frizzante, dolce, menta...)"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "0.6rem 0.8rem",
+              borderRadius: 8,
+              border: "1px solid rgba(0,0,0,0.15)",
+            }}
+          />
+          {isSearching && (
+            <p className="status-card" style={{ marginTop: "0.5rem" }}>Ricerca in corso...</p>
+          )}
+          {searchError && (
+            <p className="status-card" style={{ marginTop: "0.5rem", color: "#b00020" }}>{searchError}</p>
+          )}
+        </div>
+        <div className="filter-bar">
+          {FILTER_OPTIONS.map(opt => (
+            <button
+              type="button"
+              key={opt.key}
+              className={`filter-chip ${filters.includes(opt.key) ? "filter-chip--active" : ""}`}
+              onClick={() => toggleFilter(opt.key)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </header>
       <section className="main-content">
+        {searchResults.filter(resultMatchesFilters).length > 0 && (
+          <section className="menu-category">
+            <h2 className="menu-category-title">Risultati ricerca</h2>
+            <div className="menu-grid">
+              {searchResults.filter(resultMatchesFilters).map(result => (
+                <article className="menu-item" key={`search-${result.id}`}>
+                  <div className="menu-item-header">
+                    <span className="menu-item-name">{result.name}</span>
+                    <span className="menu-item-price">€ {formatPrice(result.price)}</span>
+                  </div>
+                  <p className="menu-item-note">Punteggio corrispondenza: {(result.score * 100).toFixed(0)}%</p>
+                  {Array.isArray(result.tags) && result.tags.length > 0 && (
+                    <div className="tag-list">
+                      {result.tags.map(tag => (
+                        <span className="tag-badge" key={`${result.id}-tag-${tag}`}>{tag}</span>
+                      ))}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    className="menu-item-add"
+                    onClick={() => handleAddToCart(result)}
+                  >
+                    Aggiungi al carrello
+                  </button>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
         <article className="info-card">
           <h2>I tuoi dati (opzionali)</h2>
           <p style={{ marginBottom: "1rem", color: "rgba(27, 27, 27, 0.7)" }}>
@@ -303,11 +444,14 @@ function MenuPage() {
           disponibili direttamente dall&apos;app.
         </div>
 
-        {categories.map(category => (
+        {categories.map(category => {
+          const filteredItems = category.items.filter(item => itemMatchesFilters(item.id));
+          if (filteredItems.length === 0) return null;
+          return (
           <section className="menu-category" key={category.name}>
             <h2 className="menu-category-title">{category.name}</h2>
             <div className="menu-grid">
-              {category.items.map(item => (
+              {filteredItems.map(item => (
                 <article className="menu-item" key={item.id}>
                   <div className="menu-item-header">
                     <span className="menu-item-name">{item.name}</span>
@@ -317,6 +461,17 @@ function MenuPage() {
                     {descriptions[item.name] ||
                       "Preparato con ingredienti freschi e selezionati per la tua pausa."}
                   </p>
+                  {(() => {
+                    const meta = metaById.get(item.id);
+                    const tags = meta && Array.isArray(meta.tags) ? meta.tags : [];
+                    return tags.length > 0 ? (
+                      <div className="tag-list">
+                        {tags.map(tag => (
+                          <span className="tag-badge" key={`${item.id}-tag-${tag}`}>{tag}</span>
+                        ))}
+                      </div>
+                    ) : null;
+                  })()}
                   <button
                     type="button"
                     className="menu-item-add"
@@ -328,7 +483,7 @@ function MenuPage() {
               ))}
             </div>
           </section>
-        ))}
+        );})}
 
         <aside className="cart-panel">
           <h2>Il tuo ordine</h2>

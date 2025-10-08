@@ -68,3 +68,14 @@ export async function updateUser(userId, payload) {
 
   return handleResponse(response);
 }
+
+export async function searchMenu(query, limit = 5) {
+  const search = new URLSearchParams({ q: query, limit: String(limit) });
+  const response = await fetch(`${API_BASE}/ai/search?${search.toString()}`);
+  return handleResponse(response);
+}
+
+export async function fetchItemTags() {
+  const response = await fetch(`${API_BASE}/ai/tags`);
+  return handleResponse(response);
+}
