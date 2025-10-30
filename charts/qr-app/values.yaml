@@ -27,6 +27,11 @@ env:
         secretKeyRef: { name: app-secrets, key: REDIS_URL }
     - name: APP_ENV
       value: "prod"
+    # Sensible defaults for in-cluster services if DATABASE_URL is not set
+    - name: POSTGRES_HOST
+      value: "postgres"
+    - name: POSTGRES_PORT
+      value: "5432"
 
 ingress:
   enabled: true
