@@ -3,6 +3,7 @@ fastapi
 routers
 uvicorn[standard]
 psycopg2-binary
+psycopg[binary]
 pydantic
 starlette
 pillow

@@ -47,3 +47,12 @@ ingress:
           pathType: Prefix
           serviceName: backend
           servicePort: 8000
+
+# Service account settings
+serviceAccount:
+  create: false
+  name: ""
+
+# Autoscaling disabled by default
+autoscaling:
+  enabled: false
