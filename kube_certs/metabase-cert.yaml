@@ -1,0 +1,13 @@
+# metabase-cert.yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: metabase-cert
+  namespace: qr
+spec:
+  secretName: metabase-tls
+  issuerRef:
+    name: selfsigned
+    kind: ClusterIssuer
+  dnsNames:
+    - metabase.local

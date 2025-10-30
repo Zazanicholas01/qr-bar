@@ -1,0 +1,49 @@
+namespace: qr
+
+image:
+  backend: ghcr.io/you/qr-backend:latest
+  frontend: ghcr.io/you/qr-frontend:latest
+
+replicas:
+  backend: 2
+  frontend: 2
+
+service:
+  type: ClusterIP
+  backend:
+    port: 8000
+  frontend:
+    port: 80
+
+imagePullSecrets: []
+
+env:
+  backend:
+    - name: DATABASE_URL
+      valueFrom:
+        secretKeyRef: { name: app-secrets, key: DATABASE_URL }
+    - name: REDIS_URL
+      valueFrom:
+        secretKeyRef: { name: app-secrets, key: REDIS_URL }
+    - name: APP_ENV
+      value: "prod"
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: selfsigned
+  tls:
+    - hosts: [ "orders.local" ]
+      secretName: web-tls
+  hosts:
+    - host: orders.local
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceName: frontend
+          servicePort: 80
+        - path: /api
+          pathType: Prefix
+          serviceName: backend
+          servicePort: 8000
