@@ -2,6 +2,7 @@ import os
 from functools import lru_cache
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.engine.url import make_url
 
 Base = declarative_base()
 
@@ -10,6 +11,22 @@ def _build_database_url() -> str:
     # Prefer explicit URL if provided
     url = os.environ.get("DATABASE_URL")
     if url:
+        # If legacy URL points to localhost, rewrite host/port from env to work in-cluster
+        try:
+            u = make_url(url)
+            if u.host in {"127.0.0.1", "localhost"}:
+                override_host = os.environ.get("POSTGRES_HOST") or os.environ.get("POSTGRES_SERVICE_HOST")
+                override_port = os.environ.get("POSTGRES_PORT") or os.environ.get("POSTGRES_SERVICE_PORT")
+                if override_host:
+                    # URL.set returns a new URL with overrides
+                    if override_port:
+                        u = u.set(host=override_host, port=int(override_port))
+                    else:
+                        u = u.set(host=override_host)
+                    return str(u)
+        except Exception:
+            # If parsing fails, fall back to the provided URL
+            pass
         return url
 
     # Defaults tuned for Kubernetes services
