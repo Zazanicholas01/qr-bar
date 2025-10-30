@@ -67,9 +67,10 @@ def _column_exists(connection, table: str, column: str) -> bool:
 
 
 def _ensure_schema() -> None:
-
     # Create or migrate schema as needed
     engine = get_engine()
+    # Ensure all ORM tables exist before running ALTERs against them
+    Base.metadata.create_all(bind=engine)
     with engine.begin() as connection:
         connection.execute(
             text(
@@ -161,6 +162,7 @@ def _ensure_schema() -> None:
                     {"tid": table_id, "code": code},
                 )
 
+    # Run again is harmless; kept for idempotency
     Base.metadata.create_all(bind=engine)
     _bootstrap_admin()
 

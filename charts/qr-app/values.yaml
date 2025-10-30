@@ -19,19 +19,8 @@ imagePullSecrets: []
 
 env:
   backend:
-    - name: DATABASE_URL
-      valueFrom:
-        secretKeyRef: { name: app-secrets, key: DATABASE_URL }
-    - name: REDIS_URL
-      valueFrom:
-        secretKeyRef: { name: app-secrets, key: REDIS_URL }
     - name: APP_ENV
       value: "prod"
-    # Sensible defaults for in-cluster services if DATABASE_URL is not set
-    - name: POSTGRES_HOST
-      value: "postgres"
-    - name: POSTGRES_PORT
-      value: "5432"
 
 ingress:
   enabled: true
@@ -61,3 +50,14 @@ serviceAccount:
 # Autoscaling disabled by default
 autoscaling:
   enabled: false
+
+# Embedded Postgres for the app (dev/default)
+postgres:
+  enabled: true
+  image: postgres:15-alpine
+  service:
+    port: 5432
+  auth:
+    username: baradmin
+    password: barpass
+    database: bardb

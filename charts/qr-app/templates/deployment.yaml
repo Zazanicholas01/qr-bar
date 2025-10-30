@@ -24,6 +24,17 @@ spec:
       containers:
         - name: backend
           image: {{ .Values.image.backend | quote }}
+          envFrom:
+            - secretRef:
+                name: {{ include "qr-app.fullname" . }}-postgres
+          env:
+            - name: POSTGRES_HOST
+              value: {{ printf "%s-postgres" (include "qr-app.fullname" .) | quote }}
+            - name: POSTGRES_PORT
+              value: {{ .Values.postgres.service.port | quote }}
+            {{- with .Values.env.backend }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           ports:
             - name: http
               containerPort: 8000
@@ -36,10 +47,7 @@ spec:
             httpGet:
               path: /
               port: http
-          {{- with .Values.env.backend }}
-          env:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
+          
 ---
 apiVersion: apps/v1
 kind: Deployment
