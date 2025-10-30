@@ -1,0 +1,8 @@
+env:
+  backend:
+    name: ADMIN_USERNAME
+      value: "admin"
+    name: ADMIN_PASSWORD
+      value: "admin123"
+    name: ADMIN_COOKIE_SECURE
+      value: "true"
