@@ -200,6 +200,29 @@ function MenuPage() {
 
   const formatPrice = value => value.toFixed(2);
 
+  // Returns a small square icon path for a given item name
+  const getIconForName = (name) => {
+    if (!name) return "/icons/generic-drink.svg";
+    const n = String(name).toLowerCase();
+    if (n.includes("espresso martini")) return "/icons/espresso-martini.svg";
+    if (n.includes("negroni")) return "/icons/negroni.svg";
+    if (n.includes("mojito")) return "/icons/mojito.svg";
+    if (n.includes("spritz")) return "/icons/spritz.svg";
+    if (n.includes("vino rosso")) return "/icons/wine-red.svg";
+    if (n.includes("vino bianco")) return "/icons/wine-white.svg";
+    if (n.includes("birra")) return "/icons/beer.svg";
+    if (n.includes("tè freddo") || n.includes("te freddo")) return "/icons/iced-tea.svg";
+    if (n.includes("acqua frizz")) return "/icons/water-sparkling.svg";
+    if (n.includes("acqua naturale") || n === "acqua") return "/icons/water-still.svg";
+    if (n.includes("arancia") || n.includes("succo")) return "/icons/orange-juice.svg";
+    if (n.includes("americano")) return "/icons/americano.svg";
+    if (n.includes("macchiato") && n.includes("latte")) return "/icons/latte-macchiato.svg";
+    if (n.includes("cappuccino")) return "/icons/cappuccino.svg";
+    if (n.includes("macchiato")) return "/icons/espresso-macchiato.svg";
+    if (n.includes("espresso")) return "/icons/espresso.svg";
+    return "/icons/generic-drink.svg";
+  };
+
   // Filter helpers (AND semantics over selected tags)
   const selectedTags = new Set(filters);
   const resultMatchesFilters = (result) => {
@@ -355,7 +378,10 @@ function MenuPage() {
               {searchResults.filter(resultMatchesFilters).map(result => (
                 <article className="menu-item" key={`search-${result.id}`}>
                   <div className="menu-item-header">
-                    <span className="menu-item-name">{result.name}</span>
+                    <span className="menu-item-title">
+                      <img className="menu-item-thumb" src={getIconForName(result.name)} alt="" />
+                      <span className="menu-item-name">{result.name}</span>
+                    </span>
                     <span className="menu-item-price">€ {formatPrice(result.price)}</span>
                   </div>
                   <p className="menu-item-note">Punteggio corrispondenza: {(result.score * 100).toFixed(0)}%</p>
@@ -454,7 +480,10 @@ function MenuPage() {
               {filteredItems.map(item => (
                 <article className="menu-item" key={item.id}>
                   <div className="menu-item-header">
-                    <span className="menu-item-name">{item.name}</span>
+                    <span className="menu-item-title">
+                      <img className="menu-item-thumb" src={getIconForName(item.name)} alt="" />
+                      <span className="menu-item-name">{item.name}</span>
+                    </span>
                     <span className="menu-item-price">€ {formatPrice(item.price)}</span>
                   </div>
                   <p className="menu-item-note">

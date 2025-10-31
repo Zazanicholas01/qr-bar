@@ -201,6 +201,23 @@ header::after {
   color: var(--color-dark-brown);
 }
 
+/* Thumb + title alignment */
+.menu-item-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.menu-item-thumb {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex: 0 0 30px;
+  background: rgba(27, 27, 27, 0.06);
+  border: 1px solid rgba(27, 27, 27, 0.08);
+}
+
 .menu-item-price {
   font-weight: 700;
   color: var(--color-yellow);
