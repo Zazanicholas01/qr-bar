@@ -200,28 +200,30 @@ function MenuPage() {
 
   const formatPrice = value => value.toFixed(2);
 
-  // Returns a small square icon path for a given item name
-  const getIconForName = (name) => {
-    if (!name) return "/icons/generic-drink.svg";
+  // Resolve a photo slug for a given item name; used to build JPG and SVG fallback paths
+  const getPhotoKey = (name) => {
+    if (!name) return "generic";
     const n = String(name).toLowerCase();
-    if (n.includes("espresso martini")) return "/icons/espresso-martini.svg";
-    if (n.includes("negroni")) return "/icons/negroni.svg";
-    if (n.includes("mojito")) return "/icons/mojito.svg";
-    if (n.includes("spritz")) return "/icons/spritz.svg";
-    if (n.includes("vino rosso")) return "/icons/wine-red.svg";
-    if (n.includes("vino bianco")) return "/icons/wine-white.svg";
-    if (n.includes("birra")) return "/icons/beer.svg";
-    if (n.includes("tè freddo") || n.includes("te freddo")) return "/icons/iced-tea.svg";
-    if (n.includes("acqua frizz")) return "/icons/water-sparkling.svg";
-    if (n.includes("acqua naturale") || n === "acqua") return "/icons/water-still.svg";
-    if (n.includes("arancia") || n.includes("succo")) return "/icons/orange-juice.svg";
-    if (n.includes("americano")) return "/icons/americano.svg";
-    if (n.includes("macchiato") && n.includes("latte")) return "/icons/latte-macchiato.svg";
-    if (n.includes("cappuccino")) return "/icons/cappuccino.svg";
-    if (n.includes("macchiato")) return "/icons/espresso-macchiato.svg";
-    if (n.includes("espresso")) return "/icons/espresso.svg";
-    return "/icons/generic-drink.svg";
+    if (n.includes("espresso martini")) return "espresso-martini";
+    if (n.includes("negroni")) return "negroni";
+    if (n.includes("mojito")) return "mojito";
+    if (n.includes("spritz")) return "spritz";
+    if (n.includes("vino rosso")) return "wine-red";
+    if (n.includes("vino bianco")) return "wine-white";
+    if (n.includes("birra")) return "beer";
+    if (n.includes("tè freddo") || n.includes("te freddo")) return "iced-tea";
+    if (n.includes("acqua frizz")) return "water-sparkling";
+    if (n.includes("acqua naturale") || n === "acqua") return "water-still";
+    if (n.includes("arancia") || n.includes("succo")) return "orange-juice";
+    if (n.includes("americano")) return "americano";
+    if (n.includes("macchiato") && n.includes("latte")) return "latte-macchiato";
+    if (n.includes("cappuccino")) return "cappuccino";
+    if (n.includes("macchiato")) return "espresso-macchiato";
+    if (n.includes("espresso")) return "espresso";
+    return "generic";
   };
+  const buildJpgPath = (key) => `/images/menu/${key}.jpg`;
+  const buildSvgPlaceholderPath = (key) => `/icons/${key}.svg`;
 
   // Filter helpers (AND semantics over selected tags)
   const selectedTags = new Set(filters);
@@ -379,7 +381,28 @@ function MenuPage() {
                 <article className="menu-item" key={`search-${result.id}`}>
                   <div className="menu-item-header">
                     <span className="menu-item-title">
-                      <img className="menu-item-thumb" src={getIconForName(result.name)} alt="" />
+                      {(() => {
+                        const key = getPhotoKey(result.name);
+                        return (
+                          <img
+                            className="menu-item-thumb"
+                            src={buildJpgPath(key)}
+                            alt={result.name}
+                            data-key={key}
+                            onError={(e) => {
+                              const img = e.currentTarget;
+                              const k = img.getAttribute('data-key') || 'generic';
+                              if (img.getAttribute('data-fallback') === 'svg') {
+                                img.onerror = null;
+                                img.src = "/icons/generic-drink.svg";
+                              } else {
+                                img.setAttribute('data-fallback', 'svg');
+                                img.src = buildSvgPlaceholderPath(k);
+                              }
+                            }}
+                          />
+                        );
+                      })()}
                       <span className="menu-item-name">{result.name}</span>
                     </span>
                     <span className="menu-item-price">€ {formatPrice(result.price)}</span>
@@ -481,7 +504,28 @@ function MenuPage() {
                 <article className="menu-item" key={item.id}>
                   <div className="menu-item-header">
                     <span className="menu-item-title">
-                      <img className="menu-item-thumb" src={getIconForName(item.name)} alt="" />
+                      {(() => {
+                        const key = getPhotoKey(item.name);
+                        return (
+                          <img
+                            className="menu-item-thumb"
+                            src={buildJpgPath(key)}
+                            alt={item.name}
+                            data-key={key}
+                            onError={(e) => {
+                              const img = e.currentTarget;
+                              const k = img.getAttribute('data-key') || 'generic';
+                              if (img.getAttribute('data-fallback') === 'svg') {
+                                img.onerror = null;
+                                img.src = "/icons/generic-drink.svg";
+                              } else {
+                                img.setAttribute('data-fallback', 'svg');
+                                img.src = buildSvgPlaceholderPath(k);
+                              }
+                            }}
+                          />
+                        );
+                      })()}
                       <span className="menu-item-name">{item.name}</span>
                     </span>
                     <span className="menu-item-price">€ {formatPrice(item.price)}</span>
