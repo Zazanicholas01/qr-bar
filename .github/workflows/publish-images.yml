@@ -25,11 +25,11 @@ jobs:
           - name: backend
             context: ./backend
             dockerfile: ./backend/Dockerfile
-            image: qr-bar-backend
+            image: qr-backend
           - name: frontend
             context: ./frontend
             dockerfile: ./frontend/Dockerfile
-            image: qr-bar-frontend
+            image: qr-frontend
 
     steps:
       - name: Checkout
@@ -80,4 +80,3 @@ jobs:
           cache-to: type=gha,mode=max
           # Set to true and keep id-token permission if you want SLSA provenance
           provenance: false
-

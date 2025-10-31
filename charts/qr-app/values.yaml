@@ -1,8 +1,8 @@
 namespace: qr
 
 image:
-  backend: ghcr.io/you/qr-backend:latest
-  frontend: ghcr.io/you/qr-frontend:latest
+  backend: ghcr.io/zazanicholas01/qr-backend:latest
+  frontend: ghcr.io/zazanicholas01/qr-frontend:latest
 
 replicas:
   backend: 2
