@@ -21,6 +21,13 @@ env:
   backend:
     - name: APP_ENV
       value: "prod"
+    # Optional admin defaults for backend
+    - name: ADMIN_USERNAME
+      value: "admin"
+    - name: ADMIN_PASSWORD
+      value: "admin123"
+    - name: ADMIN_COOKIE_SECURE
+      value: "true"
 
 ingress:
   enabled: true
@@ -41,6 +48,11 @@ ingress:
           pathType: Prefix
           serviceName: backend
           servicePort: 8000
+        # Uncomment to expose Metabase at /metabase
+        - path: /metabase
+          pathType: Prefix
+          serviceName: metabase
+          servicePort: 3000
 
 # Service account settings
 serviceAccount:
@@ -61,3 +73,23 @@ postgres:
     username: baradmin
     password: barpass
     database: bardb
+
+# Metabase settings
+metabase:
+  enabled: true
+  image: metabase/metabase:v0.49.13
+  service:
+    port: 3000
+  # Metabase application database (stores Metabase config); we create this DB in the same Postgres
+  appdb:
+    dbname: metabase
+  # Optionally set the public site URL for Metabase (e.g., http://metabase.local)
+  siteUrl: ""
+  # Admin user created during bootstrap Job
+  admin:
+    email: admin@example.com
+    password: change-me
+    firstName: Admin
+    lastName: User
+  # Setup token shared between Deployment and bootstrap Job
+  setupToken: bootstrap-token

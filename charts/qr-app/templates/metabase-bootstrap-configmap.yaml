@@ -1,0 +1,12 @@
+{{- if .Values.metabase.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "qr-app.fullname" . }}-metabase-bootstrap
+  labels:
+    {{- include "qr-app.labels" . | nindent 4 }}
+data:
+  bootstrap.sh: |
+{{- (.Files.Get "files/metabase-bootstrap.sh") | nindent 4 }}
+---
+{{- end }}

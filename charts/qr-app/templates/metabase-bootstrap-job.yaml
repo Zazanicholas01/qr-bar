@@ -1,0 +1,45 @@
+{{- if .Values.metabase.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "qr-app.fullname" . }}-metabase-bootstrap
+  labels:
+    {{- include "qr-app.labels" . | nindent 4 }}
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "qr-app.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: metabase-bootstrap
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: bootstrap
+          image: curlimages/curl:8.8.0
+          command: ["sh", "/bootstrap/bootstrap.sh"]
+          envFrom:
+            - secretRef:
+                name: {{ include "qr-app.fullname" . }}-postgres
+            - secretRef:
+                name: {{ include "qr-app.fullname" . }}-metabase-bootstrap
+          env:
+            - name: METABASE_HOST
+              value: {{ printf "%s-metabase.%s.svc" (include "qr-app.fullname" .) .Release.Namespace | quote }}
+            - name: METABASE_PORT
+              value: {{ .Values.metabase.service.port | default 3000 | quote }}
+            - name: TARGET_DB_HOST
+              value: {{ printf "%s-postgres.%s.svc" (include "qr-app.fullname" .) .Release.Namespace | quote }}
+            - name: TARGET_DB_PORT
+              value: {{ .Values.postgres.service.port | quote }}
+            - name: TARGET_DB_NAME
+              value: {{ .Values.postgres.auth.database | quote }}
+          volumeMounts:
+            - name: bootstrap
+              mountPath: /bootstrap
+      volumes:
+        - name: bootstrap
+          configMap:
+            name: {{ include "qr-app.fullname" . }}-metabase-bootstrap
+            defaultMode: 0755
+---
+{{- end }}
