@@ -37,6 +37,8 @@ ingress:
   tls:
     - hosts: [ "orders.local" ]
       secretName: web-tls
+    - hosts: [ "metabase.local" ]
+      secretName: metabase-tls
   hosts:
     - host: orders.local
       paths:
@@ -50,6 +52,12 @@ ingress:
           servicePort: 8000
         # Uncomment to expose Metabase at /metabase
         - path: /metabase
+          pathType: Prefix
+          serviceName: metabase
+          servicePort: 3000
+    - host: metabase.local
+      paths:
+        - path: /
           pathType: Prefix
           serviceName: metabase
           servicePort: 3000

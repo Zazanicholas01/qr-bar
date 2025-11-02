@@ -24,3 +24,8 @@ backend/backend-venv/
 
 # Wireguard Configs
 wireguard/
+ 
+# Local TLS and stray keys
+certs/
+certs/*.pem
+/privkey.pem

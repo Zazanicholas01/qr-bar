@@ -11,3 +11,5 @@ spec:
     kind: ClusterIssuer
   dnsNames:
     - metabase.local
+  ipAddresses:
+    - "172.21.30.223"
