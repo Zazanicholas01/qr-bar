@@ -50,6 +50,14 @@ ingress:
           pathType: Prefix
           serviceName: backend
           servicePort: 8000
+        - path: /admin
+          pathType: Prefix
+          serviceName: backend
+          servicePort: 8000
+        - path: /qrcode
+          pathType: Prefix
+          serviceName: backend
+          servicePort: 8000
         # Uncomment to expose Metabase at /metabase
         - path: /metabase
           pathType: Prefix
