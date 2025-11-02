@@ -64,9 +64,6 @@
         <p class="muted">Benvenuto, <strong>{{ admin.username }}</strong>.</p>
         <div class="actions">
           <a class="button" href="/admin/orders">Vai agli ordini</a>
-          <form method="post" action="/admin/logout" style="margin:0; display:inline;">
-            <button type="submit" class="button" style="background: #7b1fa2; border: none; cursor: pointer;">Esci</button>
-          </form>
         </div>
       {% else %}
         <p>Benvenuto nell'area riservata allo staff.</p>
