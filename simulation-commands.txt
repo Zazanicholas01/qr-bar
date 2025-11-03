@@ -1,9 +1,40 @@
-// Start a simulation run
+// Simulator commands for Kubernetes ingress
+// - Assumes ingress host `orders.local` (TLS via self-signed cert)
+// - Requires admin authentication (cookie-based)
+// - If you don't have DNS for orders.local, either:
+//   a) add an /etc/hosts entry mapping orders.local to your ingress IP, or
+//   b) pass a --resolve hint to curl (see below)
 
-curl -X POST http://localhost:8000/api/simulator/run \
-     -H 'Content-Type: application/json' \
-     -d '{"hours": 2, "time_scale": 120, "seed": 42}'
+# Set these to your environment if needed
+INGRESS_HOST="orders.local"
+# Optional: set to your ingress IP if you don't have DNS
+INGRESS_IP="172.21.30.223"   # e.g., 172.21.30.223
 
-// Reset simulation
+# Admin credentials (match Helm values)
+ADMIN_USER="admin"
+ADMIN_PASS="admin123"
 
-curl -X POST http://localhost:8000/api/simulator/reset
+# Build optional --resolve flag when INGRESS_IP is provided
+RESOLVE_FLAG=""
+if [ -n "$INGRESS_IP" ]; then
+  RESOLVE_FLAG="--resolve ${INGRESS_HOST}:443:${INGRESS_IP}"
+fi
+
+# 1) Login to obtain admin session cookie
+curl -k -L $RESOLVE_FLAG \
+  -X POST "https://${INGRESS_HOST}/admin/login" \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data-raw "username=${ADMIN_USER}&password=${ADMIN_PASS}" \
+  -c cookies.txt
+
+# 2) Start a simulation run (authenticated)
+curl -k $RESOLVE_FLAG \
+  -X POST "https://${INGRESS_HOST}/api/simulator/run" \
+  -H 'Content-Type: application/json' \
+  -b cookies.txt \
+  -d '{"hours": 2, "time_scale": 120, "seed": 42}'
+
+# 3) Reset simulation data (authenticated)
+curl -k $RESOLVE_FLAG \
+  -X POST "https://${INGRESS_HOST}/api/simulator/reset" \
+  -b cookies.txt

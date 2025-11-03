@@ -85,6 +85,64 @@
         font-size: 1.1rem;
         color: #4e342e;
       }
+      .heatmap {
+        overflow-x: auto;
+      }
+      .heatmap-table {
+        width: 100%;
+        min-width: 640px;
+        border-collapse: separate;
+        border-spacing: 4px;
+        font-size: 0.78rem;
+      }
+      .heatmap-table th {
+        text-align: center;
+        font-weight: 600;
+        padding: 0.35rem 0.25rem;
+        background: rgba(78,52,46,0.08);
+        color: #3e2723;
+        border-radius: 8px;
+      }
+      .heatmap-table th.heatmap-corner {
+        background: transparent;
+      }
+      .heatmap-table td {
+        padding: 0;
+      }
+      .heatmap-cell {
+        border-radius: 8px;
+        text-align: center;
+        padding: 0.5rem 0.25rem;
+        font-weight: 600;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+      }
+      .heatmap-cell:hover {
+        transform: scale(1.04);
+        box-shadow: 0 4px 14px rgba(62,39,35,0.18);
+      }
+      .heatmap-legend {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+        font-size: 0.75rem;
+        color: rgba(62,39,35,0.7);
+      }
+      .heatmap-legend span {
+        min-width: 2rem;
+        text-align: center;
+      }
+      .heatmap-gradient {
+        flex: 1;
+        height: 8px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, rgb(255,246,234), rgb(205,112,52));
+      }
+      .heatmap-empty {
+        margin-top: 0.5rem;
+        font-size: 0.8rem;
+        color: rgba(62,39,35,0.6);
+      }
       a.back-link {
         display: inline-flex;
         align-items: center;
@@ -138,6 +196,14 @@
           <h3>Metodi di pagamento</h3>
           <canvas id="payments-chart"></canvas>
         </div>
+        <div class="chart-card">
+          <h3>Ordini per ora (ultimi 7 giorni)</h3>
+          <div class="heatmap" id="hourly-heatmap"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Ordini per giorno della settimana (ultime 8 settimane)</h3>
+          <div class="heatmap" id="dow-heatmap"></div>
+        </div>
       </div>
     </main>
     <script>
@@ -146,6 +212,8 @@
       const closedOrdersEl = document.getElementById("closed-orders");
       const itemsCtx = document.getElementById("items-chart").getContext("2d");
       const paymentsCtx = document.getElementById("payments-chart").getContext("2d");
+      const hourlyHeatmapEl = document.getElementById("hourly-heatmap");
+      const dowHeatmapEl = document.getElementById("dow-heatmap");
 
       let itemsChart;
       let paymentsChart;
@@ -163,6 +231,7 @@
         closedOrdersEl.textContent = data.closed_count;
         updateItemsChart(data.items);
         updatePaymentsChart(data.payments);
+        updateHeatmaps(data.heatmaps);
       }
 
       function updateItemsChart(items) {
@@ -229,6 +298,193 @@
             },
           },
         });
+      }
+
+      function updateHeatmaps(heatmaps) {
+        if (!heatmaps) {
+          if (hourlyHeatmapEl) {
+            hourlyHeatmapEl.innerHTML = '<p class="heatmap-empty">Nessun dato disponibile</p>';
+          }
+          if (dowHeatmapEl) {
+            dowHeatmapEl.innerHTML = '<p class="heatmap-empty">Nessun dato disponibile</p>';
+          }
+          return;
+        }
+        if (hourlyHeatmapEl) {
+          renderHourlyHeatmap(heatmaps.hourly);
+        }
+        if (dowHeatmapEl) {
+          renderDowHeatmap(heatmaps.day_of_week);
+        }
+      }
+
+      function renderHourlyHeatmap(meta) {
+        if (!meta || !meta.dates?.length || !meta.hours?.length) {
+          hourlyHeatmapEl.innerHTML = '<p class="heatmap-empty">Nessun dato disponibile</p>';
+          return;
+        }
+        renderHeatmap({
+          container: hourlyHeatmapEl,
+          rows: meta.dates,
+          cols: meta.hours,
+          values: meta.values ?? {},
+          getKey: (row, col) => `${row}|${col}`,
+          formatRowLabel: (row) => formatDateLabel(row),
+          formatColLabel: (col) => `${String(col).padStart(2, '0')}:00`,
+          valueAccessor: (cell) => (cell ? cell.order_count : 0),
+          tooltipBuilder: (row, col, cell, value) => {
+            const amount = cell ? cell.total_amount : 0;
+            return `${formatDateLabel(row)} alle ${String(col).padStart(2, '0')}:00 — ${value} ordini, € ${amount.toFixed(2)}`;
+          },
+        });
+      }
+
+      function renderDowHeatmap(meta) {
+        if (!meta || !meta.weeks?.length || !meta.days?.length) {
+          dowHeatmapEl.innerHTML = '<p class="heatmap-empty">Nessun dato disponibile</p>';
+          return;
+        }
+        renderHeatmap({
+          container: dowHeatmapEl,
+          rows: meta.weeks,
+          cols: meta.days,
+          values: meta.values ?? {},
+          getKey: (row, col) => `${row}|${col.index}`,
+          formatRowLabel: (row) => formatWeekRange(row),
+          formatColLabel: (col) => col.label,
+          valueAccessor: (cell) => (cell ? cell.order_count : 0),
+          tooltipBuilder: (row, col, cell, value) => {
+            const amount = cell ? cell.total_amount : 0;
+            return `Settimana ${formatWeekRange(row)} · ${col.label}: ${value} ordini, € ${amount.toFixed(2)}`;
+          },
+        });
+      }
+
+      function renderHeatmap({ container, rows, cols, values, getKey, formatRowLabel, formatColLabel, valueAccessor, tooltipBuilder }) {
+        if (!container) {
+          return;
+        }
+        if (!rows?.length || !cols?.length) {
+          container.innerHTML = '<p class="heatmap-empty">Nessun dato disponibile</p>';
+          return;
+        }
+
+        const resolvedValues = values ?? {};
+        container.innerHTML = '';
+
+        const cache = new Map();
+        let maxValue = 0;
+        let hasValue = false;
+
+        rows.forEach((row, rowIndex) => {
+          cols.forEach((col, colIndex) => {
+            const key = getKey(row, col, rowIndex, colIndex);
+            const cellData = resolvedValues[key];
+            const value = valueAccessor(cellData) ?? 0;
+            cache.set(`${rowIndex}-${colIndex}`, { cellData, value, row, col, rowIndex, colIndex });
+            if (value > 0) {
+              hasValue = true;
+            }
+            if (value > maxValue) {
+              maxValue = value;
+            }
+          });
+        });
+
+        const table = document.createElement('table');
+        table.className = 'heatmap-table';
+
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        const corner = document.createElement('th');
+        corner.className = 'heatmap-corner';
+        headerRow.appendChild(corner);
+        cols.forEach((col, colIndex) => {
+          const th = document.createElement('th');
+          th.textContent = formatColLabel(col, colIndex);
+          headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        rows.forEach((row, rowIndex) => {
+          const tr = document.createElement('tr');
+          const th = document.createElement('th');
+          th.textContent = formatRowLabel(row, rowIndex);
+          tr.appendChild(th);
+
+          cols.forEach((col, colIndex) => {
+            const cached = cache.get(`${rowIndex}-${colIndex}`) ?? { cellData: undefined, value: 0 };
+            const { cellData, value } = cached;
+            const td = document.createElement('td');
+            td.className = 'heatmap-cell';
+            const intensity = maxValue > 0 ? value / maxValue : 0;
+            td.style.backgroundColor = heatColor(intensity);
+            td.style.color = intensity > 0.55 ? '#fff' : '#3e2723';
+            td.textContent = value;
+            td.title = tooltipBuilder ? tooltipBuilder(row, col, cellData, value) : `${formatRowLabel(row, rowIndex)} × ${formatColLabel(col, colIndex)}: ${value}`;
+            tr.appendChild(td);
+          });
+
+          tbody.appendChild(tr);
+        });
+
+        table.appendChild(tbody);
+        container.appendChild(table);
+
+        const legend = document.createElement('div');
+        legend.className = 'heatmap-legend';
+        const minLabel = document.createElement('span');
+        minLabel.textContent = '0';
+        const gradient = document.createElement('div');
+        gradient.className = 'heatmap-gradient';
+        const maxLabel = document.createElement('span');
+        maxLabel.textContent = maxValue.toString();
+        legend.append(minLabel, gradient, maxLabel);
+        container.appendChild(legend);
+
+        if (!hasValue) {
+          const empty = document.createElement('p');
+          empty.className = 'heatmap-empty';
+          empty.textContent = 'Nessun ordine registrato nel periodo selezionato';
+          container.appendChild(empty);
+        }
+      }
+
+      function formatDateLabel(isoDate) {
+        const date = new Date(`${isoDate}T00:00:00`);
+        return date.toLocaleDateString(undefined, { day: '2-digit', month: 'short' });
+      }
+
+      function formatWeekRange(isoDate) {
+        const start = new Date(`${isoDate}T00:00:00`);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        const startLabel = start.toLocaleDateString(undefined, { day: '2-digit', month: 'short' });
+        const endLabel = end.toLocaleDateString(undefined, { day: '2-digit', month: 'short' });
+        return `${startLabel} – ${endLabel}`;
+      }
+
+      function heatColor(intensity) {
+        if (intensity <= 0) {
+          return 'rgb(255,246,234)';
+        }
+        const clamped = Math.min(1, Math.max(0, intensity));
+        const start = [255, 246, 234];
+        const mid = [247, 201, 72];
+        const end = [205, 112, 52];
+        let rgb;
+        if (clamped < 0.5) {
+          rgb = interpolateColor(start, mid, clamped * 2);
+        } else {
+          rgb = interpolateColor(mid, end, (clamped - 0.5) * 2);
+        }
+        return `rgb(${rgb.map(value => Math.round(value)).join(',')})`;
+      }
+
+      function interpolateColor(start, end, t) {
+        return start.map((value, index) => value + (end[index] - value) * t);
       }
 
       fetchDashboard();
