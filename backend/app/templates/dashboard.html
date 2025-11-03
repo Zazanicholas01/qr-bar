@@ -69,8 +69,13 @@
       }
       .charts {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        grid-template-columns: repeat(2, minmax(320px, 1fr));
         gap: 1.5rem;
+      }
+      @media (max-width: 900px) {
+        .charts {
+          grid-template-columns: 1fr;
+        }
       }
       .chart-card {
         background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.92));
@@ -454,7 +459,9 @@
 
       function formatDateLabel(isoDate) {
         const date = new Date(`${isoDate}T00:00:00`);
-        return date.toLocaleDateString(undefined, { day: '2-digit', month: 'short' });
+        const dayPart = date.toLocaleDateString(undefined, { day: '2-digit', month: 'short' });
+        const weekday = date.toLocaleDateString(undefined, { weekday: 'short' }).replace('.', '');
+        return `${dayPart} (${weekday})`;
       }
 
       function formatWeekRange(isoDate) {
