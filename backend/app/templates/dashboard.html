@@ -91,7 +91,13 @@
         color: #4e342e;
       }
       .heatmap {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .heatmap-scroller {
         overflow-x: auto;
+        padding-bottom: 0.25rem;
       }
       .heatmap-table {
         width: 100%;
@@ -133,6 +139,7 @@
         margin-top: 0.75rem;
         font-size: 0.75rem;
         color: rgba(62,39,35,0.7);
+        width: 100%;
       }
       .heatmap-legend span {
         min-width: 2rem;
@@ -439,7 +446,11 @@
         });
 
         table.appendChild(tbody);
-        container.appendChild(table);
+
+        const scroller = document.createElement('div');
+        scroller.className = 'heatmap-scroller';
+        scroller.appendChild(table);
+        container.appendChild(scroller);
 
         const legend = document.createElement('div');
         legend.className = 'heatmap-legend';
