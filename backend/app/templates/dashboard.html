@@ -120,6 +120,7 @@
         padding: 0.5rem 0.25rem;
         font-weight: 600;
         transition: transform 0.15s ease, box-shadow 0.15s ease;
+        cursor: pointer;
       }
       .heatmap-cell:hover {
         transform: scale(1.04);
@@ -427,8 +428,10 @@
             const intensity = maxValue > 0 ? value / maxValue : 0;
             td.style.backgroundColor = heatColor(intensity);
             td.style.color = intensity > 0.55 ? '#fff' : '#3e2723';
-            td.textContent = value;
-            td.title = tooltipBuilder ? tooltipBuilder(row, col, cellData, value) : `${formatRowLabel(row, rowIndex)} × ${formatColLabel(col, colIndex)}: ${value}`;
+            const tooltipText = tooltipBuilder ? tooltipBuilder(row, col, cellData, value) : `${formatRowLabel(row, rowIndex)} × ${formatColLabel(col, colIndex)}: ${value}`;
+            td.title = tooltipText;
+            td.setAttribute('tabindex', '0');
+            td.setAttribute('aria-label', tooltipText);
             tr.appendChild(td);
           });
 
