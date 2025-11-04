@@ -13,13 +13,347 @@ data:
       "title": "Kubernetes Cluster Overview",
       "tags": ["kubernetes"],
       "timezone": "browser",
-      "schemaVersion": 38,
+      "schemaVersion": 39,
       "version": 1,
       "refresh": "30s",
-      "time": { "from": "now-15m", "to": "now" },
+      "time": { "from": "now-1h", "to": "now" },
       "timepicker": {},
       "annotations": { "list": [] },
-      "templating": { "list": [] },
+      "templating": {
+        "list": [
+          {
+            "name": "namespace",
+            "type": "query",
+            "datasource": "Prometheus",
+            "label": "Namespace",
+            "includeAll": true,
+            "multi": false,
+            "refresh": 1,
+            "sort": 1,
+            "options": [],
+            "current": { "text": "All", "value": "$__all" },
+            "query": {
+              "query": "label_values(container_memory_working_set_bytes{container!~\\\"POD|\\\",container!=\\\"\\\"}, namespace)",
+              "refId": "Prometheus-namespace-Variable"
+            },
+            "regex": "",
+            "skipUrlSync": false
+          }
+        ]
+      },
+      "panels": [
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "decimals": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "red", "value": 1 }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+          "id": 1,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "horizontal",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+          },
+          "targets": [
+            { "expr": "count(up)", "refId": "A" }
+          ],
+          "title": "Scrape Targets Up",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "decimals": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "red", "value": 1 }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+          "id": 2,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "horizontal",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+          },
+          "targets": [
+            { "expr": "count(up{job=\\\"kubernetes-nodes\\\"})", "refId": "A" }
+          ],
+          "title": "Nodes Reporting",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "decimals": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "red", "value": 1 }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+          "id": 3,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "horizontal",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+          },
+          "targets": [
+            { "expr": "sum(kubelet_running_pod_count)", "refId": "A" }
+          ],
+          "title": "Running Pods",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "decimals": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "red", "value": 1 }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+          "id": 4,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "horizontal",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+          },
+          "targets": [
+            { "expr": "sum(kubelet_running_container_count)", "refId": "A" }
+          ],
+          "title": "Running Containers",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "color": { "mode": "palette-classic" }
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+          "id": 5,
+          "options": {
+            "legend": { "displayMode": "table", "placement": "bottom" },
+            "tooltip": { "mode": "single", "sort": "none" }
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(container_cpu_usage_seconds_total{container!~\\\"POD|\\\",container!=\\\"\\\",namespace=~\\\"$namespace\\\"}[5m])) / sum(machine_cpu_cores) * 100",
+              "refId": "A"
+            }
+          ],
+          "title": "Cluster CPU Usage (%)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "color": { "mode": "palette-classic" }
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+          "id": 6,
+          "options": {
+            "legend": { "displayMode": "table", "placement": "bottom" },
+            "tooltip": { "mode": "single", "sort": "none" }
+          },
+          "targets": [
+            {
+              "expr": "sum(container_memory_working_set_bytes{container!~\\\"POD|\\\",container!=\\\"\\\",namespace=~\\\"$namespace\\\"}) / sum(machine_memory_bytes) * 100",
+              "refId": "A"
+            }
+          ],
+          "title": "Cluster Memory Usage (%)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "cores",
+              "color": { "mode": "palette-classic" }
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+          "id": 7,
+          "options": {
+            "legend": { "displayMode": "table", "placement": "bottom" },
+            "tooltip": { "mode": "single", "sort": "none" }
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(container_cpu_usage_seconds_total{container!~\\\"POD|\\\",container!=\\\"\\\",namespace=~\\\"$namespace\\\"}[5m]))",
+              "refId": "A"
+            }
+          ],
+          "title": "Cluster CPU Usage (cores)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "gbytes",
+              "color": { "mode": "palette-classic" }
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+          "id": 8,
+          "options": {
+            "legend": { "displayMode": "table", "placement": "bottom" },
+            "tooltip": { "mode": "single", "sort": "none" }
+          },
+          "targets": [
+            {
+              "expr": "sum(container_memory_working_set_bytes{container!~\\\"POD|\\\",container!=\\\"\\\",namespace=~\\\"$namespace\\\"}) / 1024 / 1024 / 1024",
+              "refId": "A"
+            }
+          ],
+          "title": "Cluster Memory Usage (GiB)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "color": { "mode": "palette-classic" }
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+          "id": 9,
+          "options": {
+            "legend": { "displayMode": "table", "placement": "bottom" },
+            "tooltip": { "mode": "single", "sort": "none" }
+          },
+          "targets": [
+            {
+              "expr": "topk(5, sum(rate(container_cpu_usage_seconds_total{container!~\\\"POD|\\\",container!=\\\"\\\",namespace=~\\\"$namespace\\\"}[5m])) by (namespace, pod))",
+              "legendFormat": "{{namespace}}/{{pod}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Top Pods by CPU (5m avg)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "color": { "mode": "palette-classic" }
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+          "id": 10,
+          "options": {
+            "legend": { "displayMode": "table", "placement": "bottom" },
+            "tooltip": { "mode": "single", "sort": "none" }
+          },
+          "targets": [
+            {
+              "expr": "topk(5, sum(container_memory_working_set_bytes{container!~\\\"POD|\\\",container!=\\\"\\\",namespace=~\\\"$namespace\\\"}) by (namespace, pod))",
+              "legendFormat": "{{namespace}}/{{pod}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Top Pods by Memory",
+          "type": "timeseries"
+        }
+      ]
+    }
+  k8s-node-health.json: |
+    {
+      "id": null,
+      "uid": "k8s-node-health",
+      "title": "Kubernetes Node Health",
+      "tags": ["kubernetes"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": { "from": "now-6h", "to": "now" },
+      "annotations": { "list": [] },
+      "templating": {
+        "list": [
+          {
+            "name": "node",
+            "type": "query",
+            "datasource": "Prometheus",
+            "label": "Node",
+            "includeAll": true,
+            "multi": true,
+            "refresh": 1,
+            "sort": 1,
+            "options": [],
+            "current": { "text": "All", "value": "$__all" },
+            "query": {
+              "query": "label_values(node_cpu_seconds_total, instance)",
+              "refId": "Prometheus-node-Variable"
+            },
+            "regex": "",
+            "skipUrlSync": false
+          }
+        ]
+      },
       "panels": [
         {
           "datasource": "Prometheus",
@@ -47,24 +381,22 @@ data:
             "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
           },
           "targets": [
-            { "expr": "count(up)", "legendFormat": "", "refId": "A" }
+            {
+              "expr": "count(count by (instance)(up{job=\\\"kubernetes-nodes\\\",instance=~\\\"$node\\\"}))",
+              "refId": "A"
+            }
           ],
-          "title": "Active Targets",
+          "title": "Selected Nodes",
           "type": "stat"
         },
         {
           "datasource": "Prometheus",
           "fieldConfig": {
             "defaults": {
-              "color": { "mode": "thresholds" },
-              "decimals": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "red", "value": 1 }
-                ]
-              }
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "color": { "mode": "palette-classic" }
             },
             "overrides": []
           },
@@ -75,27 +407,25 @@ data:
             "graphMode": "none",
             "justifyMode": "auto",
             "orientation": "horizontal",
-            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+            "reduceOptions": { "calcs": ["mean"], "fields": "", "values": false }
           },
           "targets": [
-            { "expr": "count(up{job=\"kubernetes-nodes\"})", "legendFormat": "", "refId": "A" }
+            {
+              "expr": "avg((1 - rate(node_cpu_seconds_total{mode=\\\"idle\\\",instance=~\\\"$node\\\"}[5m])) * 100)",
+              "refId": "A"
+            }
           ],
-          "title": "Nodes Up",
+          "title": "Avg CPU Utilisation",
           "type": "stat"
         },
         {
           "datasource": "Prometheus",
           "fieldConfig": {
             "defaults": {
-              "color": { "mode": "thresholds" },
-              "decimals": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "red", "value": 1 }
-                ]
-              }
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "color": { "mode": "palette-classic" }
             },
             "overrides": []
           },
@@ -106,89 +436,40 @@ data:
             "graphMode": "none",
             "justifyMode": "auto",
             "orientation": "horizontal",
-            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+            "reduceOptions": { "calcs": ["mean"], "fields": "", "values": false }
           },
           "targets": [
-            { "expr": "count(up{job=\"kubernetes-pods\"})", "legendFormat": "", "refId": "A" }
+            {
+              "expr": "avg((sum by (instance)(node_memory_MemTotal_bytes{instance=~\\\"$node\\\"}) - sum by (instance)(node_memory_MemAvailable_bytes{instance=~\\\"$node\\\"})) / sum by (instance)(node_memory_MemTotal_bytes{instance=~\\\"$node\\\"}) * 100)",
+              "refId": "A"
+            }
           ],
-          "title": "Pods Scraped",
+          "title": "Avg Memory Utilisation",
           "type": "stat"
         },
         {
           "datasource": "Prometheus",
           "fieldConfig": {
             "defaults": {
-              "unit": "cores",
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
               "color": { "mode": "palette-classic" }
             },
             "overrides": []
           },
-          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 4 },
+          "gridPos": { "h": 9, "w": 24, "x": 0, "y": 4 },
           "id": 4,
           "options": {
             "legend": { "displayMode": "table", "placement": "bottom" },
             "tooltip": { "mode": "single", "sort": "none" }
           },
           "targets": [
-            { "expr": "sum(rate(container_cpu_usage_seconds_total{container!=\"\"}[5m]))", "legendFormat": "CPU Usage", "refId": "A" }
-          ],
-          "title": "Cluster CPU Usage (cores)",
-          "type": "timeseries"
-        },
-        {
-          "datasource": "Prometheus",
-          "fieldConfig": {
-            "defaults": {
-              "unit": "bytes",
-              "color": { "mode": "palette-classic" }
-            },
-            "overrides": []
-          },
-          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 12 },
-          "id": 5,
-          "options": {
-            "legend": { "displayMode": "table", "placement": "bottom" },
-            "tooltip": { "mode": "single", "sort": "none" }
-          },
-          "targets": [
-            { "expr": "sum(container_memory_working_set_bytes{container!=\"\"})", "legendFormat": "Memory Working Set", "refId": "A" }
-          ],
-          "title": "Cluster Memory Usage",
-          "type": "timeseries"
-        }
-      ]
-    }
-  k8s-node-health.json: |
-    {
-      "id": null,
-      "uid": "k8s-node-health",
-      "title": "Kubernetes Node Health",
-      "tags": ["kubernetes"],
-      "timezone": "browser",
-      "schemaVersion": 38,
-      "version": 1,
-      "refresh": "30s",
-      "time": { "from": "now-1h", "to": "now" },
-      "templating": { "list": [] },
-      "annotations": { "list": [] },
-      "panels": [
-        {
-          "datasource": "Prometheus",
-          "fieldConfig": {
-            "defaults": {
-              "unit": "percentunit",
-              "color": { "mode": "palette-classic" }
-            },
-            "overrides": []
-          },
-          "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
-          "id": 1,
-          "options": {
-            "legend": { "displayMode": "table", "placement": "bottom" },
-            "tooltip": { "mode": "single", "sort": "none" }
-          },
-          "targets": [
-            { "expr": "avg(1 - rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) by (instance)", "legendFormat": "{{instance}}", "refId": "A" }
+            {
+              "expr": "(1 - rate(node_cpu_seconds_total{mode=\\\"idle\\\",instance=~\\\"$node\\\"}[5m])) * 100",
+              "legendFormat": "{{instance}}",
+              "refId": "A"
+            }
           ],
           "title": "Node CPU Utilisation",
           "type": "timeseries"
@@ -197,21 +478,52 @@ data:
           "datasource": "Prometheus",
           "fieldConfig": {
             "defaults": {
-              "unit": "bytes",
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
               "color": { "mode": "palette-classic" }
             },
             "overrides": []
           },
-          "gridPos": { "h": 9, "w": 24, "x": 0, "y": 9 },
-          "id": 2,
+          "gridPos": { "h": 9, "w": 24, "x": 0, "y": 13 },
+          "id": 5,
           "options": {
             "legend": { "displayMode": "table", "placement": "bottom" },
             "tooltip": { "mode": "single", "sort": "none" }
           },
           "targets": [
-            { "expr": "avg(node_memory_MemAvailable_bytes) by (instance)", "legendFormat": "{{instance}}", "refId": "A" }
+            {
+              "expr": "(sum by (instance)(node_memory_MemTotal_bytes{instance=~\\\"$node\\\"}) - sum by (instance)(node_memory_MemAvailable_bytes{instance=~\\\"$node\\\"})) / sum by (instance)(node_memory_MemTotal_bytes{instance=~\\\"$node\\\"}) * 100",
+              "legendFormat": "{{instance}}",
+              "refId": "A"
+            }
           ],
-          "title": "Node Memory Available",
+          "title": "Node Memory Utilisation",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "color": { "mode": "palette-classic" }
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 22 },
+          "id": 6,
+          "options": {
+            "legend": { "displayMode": "table", "placement": "bottom" },
+            "tooltip": { "mode": "single", "sort": "none" }
+          },
+          "targets": [
+            {
+              "expr": "kubelet_running_pod_count{instance=~\\\"$node\\\"}",
+              "legendFormat": "{{instance}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Running Pods per Node",
           "type": "timeseries"
         }
       ]
