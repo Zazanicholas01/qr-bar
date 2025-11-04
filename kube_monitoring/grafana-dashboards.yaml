@@ -27,15 +27,14 @@ data:
             "datasource": "Prometheus",
             "label": "Namespace",
             "includeAll": true,
+            "allValue": ".*",
             "multi": false,
             "refresh": 1,
             "sort": 1,
             "options": [],
             "current": { "text": "All", "value": "$__all" },
-            "query": {
-              "query": "label_values(container_memory_working_set_bytes{container!~\\\"POD|\\\",container!=\\\"\\\"}, namespace)",
-              "refId": "Prometheus-namespace-Variable"
-            },
+            "definition": "label_values(container_memory_working_set_bytes, namespace)",
+            "query": "label_values(container_memory_working_set_bytes, namespace)",
             "regex": "",
             "skipUrlSync": false
           }
@@ -99,7 +98,7 @@ data:
             "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
           },
           "targets": [
-            { "expr": "count(up{job=\\\"kubernetes-nodes\\\"})", "refId": "A" }
+            { "expr": "count(up{job=\"kubernetes-nodes\"})", "refId": "A" }
           ],
           "title": "Nodes Reporting",
           "type": "stat"
@@ -130,7 +129,7 @@ data:
             "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
           },
           "targets": [
-            { "expr": "sum(kubelet_running_pod_count)", "refId": "A" }
+            { "expr": "count(count by (namespace, pod) (container_memory_working_set_bytes{container!=\"\",pod!=\"\",namespace=~\"$namespace\"}))", "refId": "A" }
           ],
           "title": "Running Pods",
           "type": "stat"
@@ -161,7 +160,7 @@ data:
             "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
           },
           "targets": [
-            { "expr": "sum(kubelet_running_container_count)", "refId": "A" }
+            { "expr": "count(container_memory_working_set_bytes{container!=\"\",pod!=\"\",namespace=~\"$namespace\"})", "refId": "A" }
           ],
           "title": "Running Containers",
           "type": "stat"
@@ -185,7 +184,7 @@ data:
           },
           "targets": [
             {
-              "expr": "sum(rate(container_cpu_usage_seconds_total{container!~\\\"POD|\\\",container!=\\\"\\\",namespace=~\\\"$namespace\\\"}[5m])) / sum(machine_cpu_cores) * 100",
+              "expr": "sum(rate(container_cpu_usage_seconds_total{container!=\"POD\",container!=\"\",namespace=~\"$namespace\"}[5m])) / sum(machine_cpu_cores) * 100",
               "refId": "A"
             }
           ],
@@ -211,7 +210,7 @@ data:
           },
           "targets": [
             {
-              "expr": "sum(container_memory_working_set_bytes{container!~\\\"POD|\\\",container!=\\\"\\\",namespace=~\\\"$namespace\\\"}) / sum(machine_memory_bytes) * 100",
+              "expr": "sum(container_memory_working_set_bytes{container!=\"POD\",container!=\"\",namespace=~\"$namespace\"}) / sum(machine_memory_bytes) * 100",
               "refId": "A"
             }
           ],
@@ -235,7 +234,7 @@ data:
           },
           "targets": [
             {
-              "expr": "sum(rate(container_cpu_usage_seconds_total{container!~\\\"POD|\\\",container!=\\\"\\\",namespace=~\\\"$namespace\\\"}[5m]))",
+              "expr": "sum(rate(container_cpu_usage_seconds_total{container!=\"POD\",container!=\"\",namespace=~\"$namespace\"}[5m]))",
               "refId": "A"
             }
           ],
@@ -259,7 +258,7 @@ data:
           },
           "targets": [
             {
-              "expr": "sum(container_memory_working_set_bytes{container!~\\\"POD|\\\",container!=\\\"\\\",namespace=~\\\"$namespace\\\"}) / 1024 / 1024 / 1024",
+              "expr": "sum(container_memory_working_set_bytes{container!=\"POD\",container!=\"\",namespace=~\"$namespace\"}) / 1024 / 1024 / 1024",
               "refId": "A"
             }
           ],
@@ -285,7 +284,7 @@ data:
           },
           "targets": [
             {
-              "expr": "topk(5, sum(rate(container_cpu_usage_seconds_total{container!~\\\"POD|\\\",container!=\\\"\\\",namespace=~\\\"$namespace\\\"}[5m])) by (namespace, pod))",
+              "expr": "topk(5, sum(rate(container_cpu_usage_seconds_total{container!=\"POD\",container!=\"\",namespace=~\"$namespace\"}[5m])) by (namespace, pod))",
               "legendFormat": "{{namespace}}/{{pod}}",
               "refId": "A"
             }
@@ -310,7 +309,7 @@ data:
           },
           "targets": [
             {
-              "expr": "topk(5, sum(container_memory_working_set_bytes{container!~\\\"POD|\\\",container!=\\\"\\\",namespace=~\\\"$namespace\\\"}) by (namespace, pod))",
+              "expr": "topk(5, sum(container_memory_working_set_bytes{container!=\"POD\",container!=\"\",namespace=~\"$namespace\"}) by (namespace, pod))",
               "legendFormat": "{{namespace}}/{{pod}}",
               "refId": "A"
             }
@@ -340,15 +339,14 @@ data:
             "datasource": "Prometheus",
             "label": "Node",
             "includeAll": true,
+            "allValue": ".*",
             "multi": true,
             "refresh": 1,
             "sort": 1,
             "options": [],
             "current": { "text": "All", "value": "$__all" },
-            "query": {
-              "query": "label_values(node_cpu_seconds_total, instance)",
-              "refId": "Prometheus-node-Variable"
-            },
+            "definition": "label_values(machine_cpu_cores, instance)",
+            "query": "label_values(machine_cpu_cores, instance)",
             "regex": "",
             "skipUrlSync": false
           }
@@ -382,7 +380,7 @@ data:
           },
           "targets": [
             {
-              "expr": "count(count by (instance)(up{job=\\\"kubernetes-nodes\\\",instance=~\\\"$node\\\"}))",
+              "expr": "count(count by (instance)(up{job=\"kubernetes-nodes\",instance=~\"$node\"}))",
               "refId": "A"
             }
           ],
@@ -411,7 +409,7 @@ data:
           },
           "targets": [
             {
-              "expr": "avg((1 - rate(node_cpu_seconds_total{mode=\\\"idle\\\",instance=~\\\"$node\\\"}[5m])) * 100)",
+              "expr": "avg( sum by (instance) (rate(container_cpu_usage_seconds_total{container!=\"\",instance=~\"$node\"}[5m])) / sum by (instance) (machine_cpu_cores) * 100 )",
               "refId": "A"
             }
           ],
@@ -440,7 +438,7 @@ data:
           },
           "targets": [
             {
-              "expr": "avg((sum by (instance)(node_memory_MemTotal_bytes{instance=~\\\"$node\\\"}) - sum by (instance)(node_memory_MemAvailable_bytes{instance=~\\\"$node\\\"})) / sum by (instance)(node_memory_MemTotal_bytes{instance=~\\\"$node\\\"}) * 100)",
+              "expr": "avg( (sum by (instance)(machine_memory_bytes{instance=~\"$node\"}) - sum by (instance)(container_memory_working_set_bytes{container!=\"\",instance=~\"$node\"})) / sum by (instance)(machine_memory_bytes{instance=~\"$node\"}) * 100 )",
               "refId": "A"
             }
           ],
@@ -466,7 +464,7 @@ data:
           },
           "targets": [
             {
-              "expr": "(1 - rate(node_cpu_seconds_total{mode=\\\"idle\\\",instance=~\\\"$node\\\"}[5m])) * 100",
+              "expr": "sum by (instance) (rate(container_cpu_usage_seconds_total{container!=\"\",instance=~\"$node\"}[5m])) / sum by (instance) (machine_cpu_cores) * 100",
               "legendFormat": "{{instance}}",
               "refId": "A"
             }
@@ -493,7 +491,7 @@ data:
           },
           "targets": [
             {
-              "expr": "(sum by (instance)(node_memory_MemTotal_bytes{instance=~\\\"$node\\\"}) - sum by (instance)(node_memory_MemAvailable_bytes{instance=~\\\"$node\\\"})) / sum by (instance)(node_memory_MemTotal_bytes{instance=~\\\"$node\\\"}) * 100",
+              "expr": "(sum by (instance)(machine_memory_bytes{instance=~\"$node\"}) - sum by (instance)(container_memory_working_set_bytes{container!=\"\",instance=~\"$node\"})) / sum by (instance)(machine_memory_bytes{instance=~\"$node\"}) * 100",
               "legendFormat": "{{instance}}",
               "refId": "A"
             }
@@ -518,7 +516,7 @@ data:
           },
           "targets": [
             {
-              "expr": "kubelet_running_pod_count{instance=~\\\"$node\\\"}",
+              "expr": "count by (instance) (count by (instance, pod) (container_memory_working_set_bytes{container!=\"\",pod!=\"\",instance=~\"$node\"}))",
               "legendFormat": "{{instance}}",
               "refId": "A"
             }
