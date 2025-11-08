@@ -195,24 +195,44 @@ def get_host_ip():
     return ip
 
 
+def _build_public_base_url(request: Request) -> str:
+    """Build a publicly reachable base URL.
+
+    Priority:
+    1) FRONTEND_PUBLIC_URL if set
+    2) X-Forwarded-* headers or Host header from the current request
+    3) NODE_IP (Downward API) or fallback to container-detected IP
+    """
+    # 1) Explicit override
+    if frontend_public_url:
+        return frontend_public_url.rstrip("/")
+
+    # 2) Prefer the Host header seen by the client; avoid injecting ports from proxies
+    proto = request.headers.get("x-forwarded-proto") or request.url.scheme
+    client_host = request.headers.get("host")
+    if client_host:
+        return f"{proto}://{client_host}"
+    # Fallback to X-Forwarded-Host if Host is unavailable
+    xf_host = request.headers.get("x-forwarded-host")
+    if xf_host:
+        return f"{proto}://{xf_host}"
+
+    # 3) Fall back to node/container IP
+    ip = os.environ.get("NODE_IP") or get_host_ip()
+    scheme = os.environ.get("FRONTEND_SCHEME", "https")
+    port = os.environ.get("FRONTEND_PUBLIC_PORT")
+    if not port:
+        port = "443" if scheme == "https" else "80"
+    if (scheme == "https" and port == "443") or (scheme == "http" and port == "80"):
+        return f"{scheme}://{ip}"
+    return f"{scheme}://{ip}:{port}"
+
+
 @app.get("/qrcode", response_class=HTMLResponse)
-def generate_qrcodes(db: Session = Depends(get_db)):
+def generate_qrcodes(request: Request, db: Session = Depends(get_db)):
 
     # Determine the base URL for the QR codes
-    if frontend_public_url:
-        base_url = frontend_public_url.rstrip("/")
-    else:
-        ip = get_host_ip()
-        scheme = os.environ.get("FRONTEND_SCHEME", "https")
-        port = os.environ.get("FRONTEND_PUBLIC_PORT")
-        # Default ports by scheme
-        if not port:
-            port = "443" if scheme == "https" else "80"
-        # Omit port for standard ports
-        if (scheme == "https" and port == "443") or (scheme == "http" and port == "80"):
-            base_url = f"{scheme}://{ip}"
-        else:
-            base_url = f"{scheme}://{ip}:{port}"
+    base_url = _build_public_base_url(request)
 
     # Ensure at least 10 tables exist
     tables = db.query(models.Table).order_by(models.Table.code.asc()).all()
@@ -227,7 +247,7 @@ def generate_qrcodes(db: Session = Depends(get_db)):
     qrs: list[tuple[str, str, str, str]] = []
 
     for table in tables:
-        table_url = f"{base_url}:8443/table/{table.code}"
+        table_url = f"{base_url}/table/{table.code}"
         buf = io.BytesIO()
         qrcode.make(table_url).save(buf, format="PNG")
         encoded = base64.b64encode(buf.getvalue()).decode("ascii")

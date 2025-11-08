@@ -32,6 +32,11 @@ spec:
               value: {{ printf "%s-postgres" (include "qr-app.fullname" .) | quote }}
             - name: POSTGRES_PORT
               value: {{ .Values.postgres.service.port | quote }}
+            # Surface the node IP to the pod (used by /qrcode fallback)
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
             {{- with .Values.env.backend }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

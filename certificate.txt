@@ -3,3 +3,7 @@ sudo snap set microk8s api-extra-sans=192.168.1.36
 sudo microk8s refresh-certs --cert <cert_name>
 
 sudo microk8s status --wait-ready
+
+############# HELM UPGRADE COMMAND #################################################
+
+helm upgrade --install qr-app charts/qr-app -n qr --create-namespace --set fullnameOverride=qr-app
