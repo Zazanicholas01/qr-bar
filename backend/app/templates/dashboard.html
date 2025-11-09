@@ -136,6 +136,13 @@
       .heatmap-table td {
         padding: 0;
       }
+      .heatmap-table tbody th,
+      .heatmap-cell {
+        height: 2.4rem;
+      }
+      .heatmap-table tbody th {
+        vertical-align: middle;
+      }
       .heatmap-cell {
         border-radius: 8px;
         text-align: center;
@@ -143,6 +150,9 @@
         font-weight: 600;
         transition: transform 0.15s ease, box-shadow 0.15s ease;
         cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
       .heatmap-cell:hover {
         transform: scale(1.04);
