@@ -80,6 +80,10 @@ spec:
       containers:
         - name: frontend
           image: {{ .Values.image.frontend | quote }}
+          volumeMounts:
+            - name: frontend-nginx-config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
           ports:
             - name: http
               containerPort: 80
@@ -92,3 +96,7 @@ spec:
             httpGet:
               path: /
               port: http
+      volumes:
+        - name: frontend-nginx-config
+          configMap:
+            name: {{ include "qr-app.fullname" . }}-frontend-nginx

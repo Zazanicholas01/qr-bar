@@ -11,3 +11,6 @@ spec:
     kind: ClusterIssuer
   dnsNames:
     - orders.local
+  # Add IP SAN so HTTPS works when accessing the app by IP
+  ipAddresses:
+    - "192.168.1.36"

@@ -28,18 +28,41 @@ env:
       value: "admin123"
     - name: ADMIN_COOKIE_SECURE
       value: "true"
+    # Force QR codes to use the LAN IP over HTTPS (testing)
+    - name: FRONTEND_PUBLIC_URL
+      value: "https://192.168.1.36"
 
 ingress:
   enabled: true
   className: nginx
   annotations:
     cert-manager.io/cluster-issuer: selfsigned
+    nginx.ingress.kubernetes.io/default-ssl-certificate: qr/web-tls
   tls:
     - hosts: [ "orders.local" ]
       secretName: web-tls
     - hosts: [ "metabase.local" ]
       secretName: metabase-tls
   hosts:
+    # Hostless rule to accept requests by IP/any host (HTTPS served via default-ssl-certificate)
+    - host: ""
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceName: frontend
+          servicePort: 80
+        - path: /api
+          pathType: Prefix
+          serviceName: backend
+          servicePort: 8000
+        - path: /admin
+          pathType: Prefix
+          serviceName: backend
+          servicePort: 8000
+        - path: /qrcode
+          pathType: Prefix
+          serviceName: backend
+          servicePort: 8000
     - host: orders.local
       paths:
         - path: /
