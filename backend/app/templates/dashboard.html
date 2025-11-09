@@ -354,16 +354,16 @@
         }
         renderHeatmap({
           container: hourlyHeatmapEl,
-          rows: meta.dates,
-          cols: meta.hours,
+          rows: meta.hours,
+          cols: meta.dates,
           values: meta.values ?? {},
-          getKey: (row, col) => `${row}|${col}`,
-          formatRowLabel: (row) => formatDateLabel(row),
-          formatColLabel: (col) => `${String(col).padStart(2, '0')}:00`,
+          getKey: (row, col) => `${col}|${row}`,
+          formatRowLabel: (row) => `${String(row).padStart(2, '0')}:00`,
+          formatColLabel: (col) => formatDateLabel(col),
           valueAccessor: (cell) => (cell ? cell.order_count : 0),
           tooltipBuilder: (row, col, cell, value) => {
             const amount = cell ? cell.total_amount : 0;
-            return `${formatDateLabel(row)} alle ${String(col).padStart(2, '0')}:00 — ${value} ordini, € ${amount.toFixed(2)}`;
+            return `${formatDateLabel(col)} alle ${String(row).padStart(2, '0')}:00 — ${value} ordini, € ${amount.toFixed(2)}`;
           },
         });
       }
