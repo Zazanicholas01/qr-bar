@@ -1,4 +1,4 @@
-sudo snap set microk8s api-extra-sans=192.168.1.36
+sudo snap set microk8s api-extra-sans=10.196.142.223 192.168.1.36
 
 sudo microk8s refresh-certs --cert <cert_name>
 

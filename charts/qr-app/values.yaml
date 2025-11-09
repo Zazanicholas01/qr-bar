@@ -30,7 +30,7 @@ env:
       value: "true"
     # Force QR codes to use the LAN IP over HTTPS (testing)
     - name: FRONTEND_PUBLIC_URL
-      value: "https://192.168.1.36"
+      value: "https://10.196.142.223"
 
 ingress:
   enabled: true

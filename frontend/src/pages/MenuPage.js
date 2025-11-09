@@ -30,6 +30,17 @@ function MenuPage() {
   const [searchError, setSearchError] = useState(null);
   const [metaById, setMetaById] = useState(new Map());
   const [filters, setFilters] = useState([]);
+  // Track which cards are flipped (by item id)
+  const [flipped, setFlipped] = useState(() => new Set());
+
+  const isFlipped = (id) => flipped.has(id);
+  const toggleFlip = (id) => {
+    setFlipped(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   const apiHost = process.env.REACT_APP_API_HOST || window.location.hostname;
   const envPort = process.env.REACT_APP_API_PORT;
@@ -378,14 +389,21 @@ function MenuPage() {
             <h2 className="menu-category-title">Risultati ricerca</h2>
             <div className="menu-grid">
               {searchResults.filter(resultMatchesFilters).map(result => (
-                <article className="menu-item" key={`search-${result.id}`}>
-                  <div className="menu-item-header">
-                    <span className="menu-item-title">
+                <article
+                  className={`menu-item flip-card ${isFlipped(result.id) ? "is-flipped" : ""}`}
+                  key={`search-${result.id}`}
+                  onClick={() => toggleFlip(result.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleFlip(result.id); }}
+                >
+                  <div className="flip-inner">
+                    <div className="flip-front">
                       {(() => {
                         const key = getPhotoKey(result.name);
                         return (
                           <img
-                            className="menu-item-thumb"
+                            className="menu-card-image"
                             src={buildJpgPath(key)}
                             alt={result.name}
                             data-key={key}
@@ -403,25 +421,34 @@ function MenuPage() {
                           />
                         );
                       })()}
-                      <span className="menu-item-name">{result.name}</span>
-                    </span>
-                    <span className="menu-item-price">€ {formatPrice(result.price)}</span>
-                  </div>
-                  <p className="menu-item-note">Punteggio corrispondenza: {(result.score * 100).toFixed(0)}%</p>
-                  {Array.isArray(result.tags) && result.tags.length > 0 && (
-                    <div className="tag-list">
-                      {result.tags.map(tag => (
-                        <span className="tag-badge" key={`${result.id}-tag-${tag}`}>{tag}</span>
-                      ))}
+                      <div className="menu-card-overlay">
+                        <div className="menu-card-title">{result.name}</div>
+                      </div>
                     </div>
-                  )}
-                  <button
-                    type="button"
-                    className="menu-item-add"
-                    onClick={() => handleAddToCart(result)}
-                  >
-                    Aggiungi al carrello
-                  </button>
+                    <div className="flip-back">
+                      <div className="menu-card-back">
+                        <h3 className="menu-card-name">{result.name}</h3>
+                        <p className="menu-item-note">Punteggio corrispondenza: {(result.score * 100).toFixed(0)}%</p>
+                        {Array.isArray(result.tags) && result.tags.length > 0 && (
+                          <div className="tag-list">
+                            {result.tags.map(tag => (
+                              <span className="tag-badge" key={`${result.id}-tag-${tag}`}>{tag}</span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="menu-card-footer">
+                          <span className="menu-item-price">€ {formatPrice(result.price)}</span>
+                          <button
+                            type="button"
+                            className="menu-item-add"
+                            onClick={(e) => { e.stopPropagation(); handleAddToCart(result); }}
+                          >
+                            Aggiungi al carrello
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </article>
               ))}
             </div>
@@ -501,14 +528,21 @@ function MenuPage() {
             <h2 className="menu-category-title">{category.name}</h2>
             <div className="menu-grid">
               {filteredItems.map(item => (
-                <article className="menu-item" key={item.id}>
-                  <div className="menu-item-header">
-                    <span className="menu-item-title">
+                <article
+                  className={`menu-item flip-card ${isFlipped(item.id) ? "is-flipped" : ""}`}
+                  key={item.id}
+                  onClick={() => toggleFlip(item.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleFlip(item.id); }}
+                >
+                  <div className="flip-inner">
+                    <div className="flip-front">
                       {(() => {
                         const key = getPhotoKey(item.name);
                         return (
                           <img
-                            className="menu-item-thumb"
+                            className="menu-card-image"
                             src={buildJpgPath(key)}
                             alt={item.name}
                             data-key={key}
@@ -526,32 +560,41 @@ function MenuPage() {
                           />
                         );
                       })()}
-                      <span className="menu-item-name">{item.name}</span>
-                    </span>
-                    <span className="menu-item-price">€ {formatPrice(item.price)}</span>
-                  </div>
-                  <p className="menu-item-note">
-                    {descriptions[item.name] ||
-                      "Preparato con ingredienti freschi e selezionati per la tua pausa."}
-                  </p>
-                  {(() => {
-                    const meta = metaById.get(item.id);
-                    const tags = meta && Array.isArray(meta.tags) ? meta.tags : [];
-                    return tags.length > 0 ? (
-                      <div className="tag-list">
-                        {tags.map(tag => (
-                          <span className="tag-badge" key={`${item.id}-tag-${tag}`}>{tag}</span>
-                        ))}
+                      <div className="menu-card-overlay">
+                        <div className="menu-card-title">{item.name}</div>
                       </div>
-                    ) : null;
-                  })()}
-                  <button
-                    type="button"
-                    className="menu-item-add"
-                    onClick={() => handleAddToCart(item)}
-                  >
-                    Aggiungi al carrello
-                  </button>
+                    </div>
+                    <div className="flip-back">
+                      <div className="menu-card-back">
+                        <h3 className="menu-card-name">{item.name}</h3>
+                        <p className="menu-item-note">
+                          {descriptions[item.name] ||
+                            "Preparato con ingredienti freschi e selezionati per la tua pausa."}
+                        </p>
+                        {(() => {
+                          const meta = metaById.get(item.id);
+                          const tags = meta && Array.isArray(meta.tags) ? meta.tags : [];
+                          return tags.length > 0 ? (
+                            <div className="tag-list">
+                              {tags.map(tag => (
+                                <span className="tag-badge" key={`${item.id}-tag-${tag}`}>{tag}</span>
+                              ))}
+                            </div>
+                          ) : null;
+                        })()}
+                        <div className="menu-card-footer">
+                          <span className="menu-item-price">€ {formatPrice(item.price)}</span>
+                          <button
+                            type="button"
+                            className="menu-item-add"
+                            onClick={(e) => { e.stopPropagation(); handleAddToCart(item); }}
+                          >
+                            Aggiungi al carrello
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </article>
               ))}
             </div>

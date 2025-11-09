@@ -14,3 +14,4 @@ spec:
   # Add IP SAN so HTTPS works when accessing the app by IP
   ipAddresses:
     - "192.168.1.36"
+    - "10.196.142.223"
