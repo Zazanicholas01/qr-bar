@@ -2,6 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import relationship
+from sqlalchemy.schema import UniqueConstraint
 
 from .database import Base
 
@@ -105,3 +106,75 @@ class Transaction(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     order = relationship("Order", back_populates="transaction")
+
+
+# =====================
+# Inventory core models
+# =====================
+
+class InventoryItem(Base):
+    __tablename__ = "inventory_items"
+
+    id = Column(Integer, primary_key=True)
+    sku = Column(String(80), unique=True, nullable=False, index=True)
+    name = Column(String(200), nullable=False)
+    unit = Column(String(16), nullable=False, default="pcs")  # e.g., ml, g, pcs
+    par_level = Column(Numeric(12, 3), nullable=True)
+    reorder_point = Column(Numeric(12, 3), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class InventoryLocation(Base):
+    __tablename__ = "inventory_locations"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(120), unique=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class Recipe(Base):
+    __tablename__ = "recipes"
+
+    # product_id maps to OrderItem.product_id (sellable menu item)
+    product_id = Column(Integer, primary_key=True)
+    yield_qty = Column(Numeric(12, 3), nullable=False, default=1)
+    yield_unit = Column(String(16), nullable=False, default="pcs")
+
+
+class RecipeComponent(Base):
+    __tablename__ = "recipe_components"
+
+    id = Column(Integer, primary_key=True)
+    recipe_item_id = Column(Integer, ForeignKey("recipes.product_id", ondelete="CASCADE"), nullable=False)
+    component_item_id = Column(Integer, ForeignKey("inventory_items.id", ondelete="RESTRICT"), nullable=False)
+    qty_per_yield = Column(Numeric(12, 3), nullable=False)
+    unit = Column(String(16), nullable=False)
+
+
+class StockMovement(Base):
+    __tablename__ = "stock_movements"
+
+    id = Column(Integer, primary_key=True)
+    item_id = Column(Integer, ForeignKey("inventory_items.id", ondelete="RESTRICT"), nullable=False)
+    location_id = Column(Integer, ForeignKey("inventory_locations.id", ondelete="SET NULL"), nullable=True)
+    qty_delta = Column(Numeric(12, 3), nullable=False)
+    unit = Column(String(16), nullable=False)
+    reason = Column(String(24), nullable=False)  # sale, receive, adjust, waste, transfer
+    ref_type = Column(String(24), nullable=True)  # e.g., order, po, adjust
+    ref_id = Column(Integer, nullable=True)
+    occurred_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_by = Column(String(120), nullable=True)
+
+    __table_args__ = (
+        # Helps idempotency for per-order movements
+        UniqueConstraint("item_id", "reason", "ref_type", "ref_id", name="uq_movement_idem"),
+    )
+
+
+class StockLevel(Base):
+    __tablename__ = "stock_levels"
+
+    item_id = Column(Integer, ForeignKey("inventory_items.id", ondelete="CASCADE"), primary_key=True)
+    location_id = Column(Integer, ForeignKey("inventory_locations.id", ondelete="CASCADE"), primary_key=True, nullable=False, default=0)
+    qty_on_hand_cached = Column(Numeric(12, 3), nullable=False, default=0)
+    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)

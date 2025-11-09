@@ -1,0 +1,134 @@
+############# MACHINE LEARNING ########################
+
+    - Demand Forecasting
+        - Predict Orders per hour/day per item for staff optimization
+        - Add Features like Promos / Holidays / Weather
+    
+    - Inventory Restock Forecasting
+        - Forecast depletion from item-order mapping
+        - Trigger low-stock Alerts
+        - Suggest Reorder Quantities
+    
+    - Preparation Time Estimation
+        - Predict order ready-times from History
+        - Queue Lengths / Time of Day / Day of Week
+    
+    - Upsell Recommendations
+        - Suggest add-ons based on basket associations
+    
+################ CUSTOMIZED USERS #######################
+
+    - RBAC Control (Production-only)
+
+    - Sessions & Authentication
+
+    - Customer Based Orders ML for Recommendation System
+
+################ INVENTORY #############################
+
+    PURPOSE
+        - Track Ingredients & Packaging
+        - Link Menu Items to Ingredients
+        - Update Stock on Sales / Receiving / Waste
+        - Low-Stock Alerts
+        - Forecasts
+        - Drive Purchase Orders
+    
+    DATA MODEL
+        - ITEMS
+            - Manage Inventory Items / Locations / Batches
+            - Define Recipes for Menu Items
+            - Define Stock Movements (Sale / Receive / Waste / Transfer...)
+            - Define Stock Levels
+            - Define Suppliers
+            - Purchase Orders Task
+
+        - UNITS & CONVERSION
+            - Normalize internal units
+            - Conversions --> Map Packaging to Base Units
+            - Validation
+        
+        - INTEGRATION WITH ORDERS
+            - ON Order Closed --> For each sold item --> Use Recipe --> Accumulate Quantites Used
+                            --> Create Stock Movements with Negative Delta Quantity
+                            --> Update Stock Levels
+            
+        - RECEIVING / WASTE / TRANSFERS
+            - Receiving --> Create Purchase Order --> Record Receive Movement --> Update Cost
+            - Waste --> Record Wastes for any reason
+            - Transfers --> 2 Movements in 1 Operation --> Negative A / Positive B
+        
+        - FORECASTING & RENDER
+            - Demand --> Build Daily Consumption per Item
+            - Forecast --> Moving Average or Prophet per Item
+            - Reorder Suggestion --> When Stock < Reorder Threshold --> Propose Purchase Order Quantity
+        
+        - PERMISSIONS
+            - Roles
+                - Inventory Manager --> Receive / Adjust / Purchase Order
+                - Staff --> View
+                - Admin --> All
+        
+        - APIs
+            - GET /api/inventory/levels?location=... --> Get Stock Levels by Location
+            - POST /api/inventory/adjust --> Adjust Inventory (Admin Only)
+            - POST /api/inventory/transfer --> Transfer Items
+            - GET /api/inventory/items && POST --> Get & Set Items Maybe
+
+            - GET api/recipes/:item_id && PUT --> Get or Update Recipes by Item
+            - POST /api/recipes/:item_id/components
+            
+            - GET/POST /api/purchase-orders --> Create Purchase Orders
+            - POST /api/purchase-orders/:id/receive --> 
+
+            - GET/api/inventory/replenishment?horizon_days=... --> Get Replenishment Info
+
+        - UI
+            - Stock Overview (Location / Low-Stock Highlight / Search by SKU/Name)
+            - Item Detail --> Current Levels / Recent Movements / Recipe / Suppliers
+            - Receiving Screen --> Scan or Import Purchase Orders / Record Quantities / Lot/Expiry / Cost
+            - Waste --> Form with Reason Codes
+            - Replenishment --> Suggested Orders with Quantities and Reasons (Forecast)
+            - Recipe Editor
+        
+        - COSTING & PRICING
+            - Weighted Average --> Update (old_qty * old_cost + received_qty * unit_cost) / (old_qty + received_qty)
+        
+        - PERFORMANCE
+            - Just at Night --> Machine Learning / High Computation Forecast
+
+IMPLEMENTATION PHASES
+    - 1 --> Core Tables / Manual Adjustments / Levels View / No Batches
+    - 2 --> Receiving & Suppliers & Purchase Orders / Recipe Editor / Low-Stock Alerts
+    - 3 --> Forecasting / Replenishment / Transfers
+    - 4 --> Batches / Expiry / FIFO Logic / Margin Analytics
+
+
+
+############# CHATGPT TRACKING ####################
+
+Seeded SKUs and units (examples):
+
+Liquids ml: MILK, ORANGE-JUICE, WATER-STILL, WATER-SPARK, ICED-TEA, BEER-KEG, WINE-WHITE, WINE-RED, APEROL, PROSECCO, SODA, GIN, CAMPARI, VERMOUTH-ROSSO, RUM, VODKA, COFFEE-LIQUEUR, SUGAR-SYRUP
+Solids g: COFFEE-BEANS, MINT
+Pieces pcs: LIME, ICE-CUBE, ORANGE
+
+Recipes (realistic bar quantities) mapped to menu product IDs:
+
+Espresso(1): 7 g beans
+Espresso Macchiato(2): 7 g beans + 20 ml milk
+Cappuccino(3): 7 g beans + 150 ml milk
+Latte Macchiato(4): 7 g beans + 200 ml milk
+Americano(5): 7 g beans
+Orange juice(20): 250 ml orange juice
+Still/Sparkling water(21/22): 500 ml
+Iced tea(23): 330 ml
+Beer(40): 330 ml
+Wine white/red(41/42): 150 ml
+Spritz(60): 60 ml Aperol + 90 ml Prosecco + 30 ml Soda + 3 pcs Ice + 0.2 pcs Orange
+Negroni(61): 30 ml each Gin/Campari/Vermouth + 3 pcs Ice + 0.2 pcs Orange
+Mojito(80): 50 ml Rum + 100 ml Soda + 0.5 pcs Lime + 3 g Mint + 10 ml Syrup + 4 pcs Ice
+Espresso Martini(81): 40 ml Vodka + 20 ml Coffee liqueur + 7 g beans + 3 pcs Ice
+
+Starting stock (examples): beans 5000 g, milk 20000 ml, beer 50000 ml, wines 10000 ml, spirits 5000 ml, mixers 20000 ml, limes 50 pcs, ice 1000 pcs, etc.
+

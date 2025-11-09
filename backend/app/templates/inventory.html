@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <title>Inventario</title>
+    <style>
+      body { font-family: Arial, Helvetica, sans-serif; margin: 0; background:
+        radial-gradient(1200px 600px at 10% -10%, rgba(247, 201, 72, 0.08), transparent 60%),
+        radial-gradient(1000px 500px at 120% 0%, rgba(78, 52, 46, 0.08), transparent 55%),
+        radial-gradient(circle at top, #fff8ec, #f5ede1 60%);
+        color: #3e2723; }
+      header { background: linear-gradient(135deg, #4e342e, #3e2723); color: #fff; padding: 1.2rem 1.5rem; display: flex; align-items: baseline; justify-content: space-between; }
+      main { padding: 1.25rem; max-width: 1100px; margin: 0 auto; }
+      .card { background: #fff; border-radius: 14px; padding: 1rem; box-shadow: 0 12px 28px rgba(30,20,15,0.12); border: 1px solid rgba(78,52,46,0.12); }
+      .grid { display: grid; grid-template-columns: 1fr 360px; gap: 1rem; }
+      @media (max-width: 960px) { .grid { grid-template-columns: 1fr; } }
+      table { width: 100%; border-collapse: separate; border-spacing: 0; }
+      thead th { text-align: left; background: rgba(78,52,46,0.08); color: #3e2723; padding: 10px; position: sticky; top: 0; }
+      tbody td { padding: 10px; border-top: 1px solid rgba(78,52,46,0.12); }
+      .adjust { display: grid; gap: 0.5rem; }
+      label { font-size: 0.9rem; color: rgba(62,39,35,0.9); }
+      input, select { padding: 0.55rem 0.6rem; border-radius: 8px; border: 1px solid rgba(78,52,46,0.25); }
+      button { padding: 0.6rem 0.9rem; border-radius: 999px; border: none; background: linear-gradient(135deg, #4e342e, #3e2723); color: #fff; font-weight: 600; cursor: pointer; }
+      .muted { color: rgba(62,39,35,0.7); font-size: 0.9rem; }
+      .actions { display: flex; gap: 0.5rem; align-items: center; }
+      .row { display: flex; gap: 0.5rem; align-items: center; }
+      .right { text-align: right; }
+      .admin-menu { position: fixed; right: 24px; bottom: 24px; z-index: 1000; }
+    </style>
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1 style="margin:0">Inventario</h1>
+        <p class="muted" style="margin:0.2rem 0 0">Livelli stock e regolazioni rapide</p>
+      </div>
+      <div class="actions">
+        <a href="/admin/" style="color:#fff; text-decoration:none; font-weight:600">Area Staff</a>
+      </div>
+    </header>
+    <main>
+      <div class="grid">
+        <div class="card" style="overflow:auto; max-height: 70vh;">
+          <table>
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>Nome</th>
+                <th class="right">Quantità</th>
+                <th>Unità</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for it in items %}
+              <tr>
+                <td><code>{{ it.sku }}</code></td>
+                <td>{{ it.name }}</td>
+                <td class="right">{{ '%.2f'|format(it.qty) }}</td>
+                <td>{{ it.unit }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0">Regola inventario</h3>
+          <form class="adjust" method="post" action="/admin/inventory/adjust">
+            <div>
+              <label for="sku">SKU</label>
+              <input id="sku" name="sku" placeholder="e.g., COFFEE-BEANS" required />
+            </div>
+            <div class="row">
+              <div style="flex:2">
+                <label for="delta">Delta</label>
+                <input id="delta" name="delta" type="number" step="0.01" placeholder="e.g., 500" required />
+              </div>
+              <div style="flex:1">
+                <label for="unit">Unità</label>
+                <input id="unit" name="unit" placeholder="ml/g/pcs" />
+              </div>
+            </div>
+            <div>
+              <label for="reason">Motivo</label>
+              <select id="reason" name="reason">
+                <option value="adjust">Adjust</option>
+                <option value="receive">Receive</option>
+                <option value="waste">Waste</option>
+                <option value="transfer">Transfer</option>
+              </select>
+            </div>
+            <div>
+              <button type="submit">Applica</button>
+            </div>
+          </form>
+          <p class="muted">Suggerimento: valori positivi aggiungono stock; negativi sottraggono.</p>
+        </div>
+      </div>
+    </main>
+
+    <!-- Floating radial admin menu (same pattern as other pages) -->
+    <div class="admin-menu">
+      <div class="main">
+        <div class="navigation" aria-label="Admin navigation" title="Menu">
+          <span style="--i: 0; --x: 0; --y: -1"><a href="/admin/orders/closed" title="Ordini chiusi"><ion-icon name="time-outline"></ion-icon></a></span>
+          <span style="--i: 1; --x: 1; --y: 0"><a href="/admin/dashboard" title="Dashboard"><ion-icon name="speedometer-outline"></ion-icon></a></span>
+          <span style="--i: 2; --x: 0; --y: 1"><a href="/admin/orders" title="Ordini"><ion-icon name="receipt-outline"></ion-icon></a></span>
+          <span style="--i: 3; --x: -1; --y: 0"><a href="/admin/inventory" title="Inventario"><ion-icon name="cube-outline"></ion-icon></a></span>
+          <span style="--i: 4; --x: -1; --y: 1"><a href="/admin/login" title="Login"><ion-icon name="log-in-outline"></ion-icon></a></span>
+          <span style="--i: 5; --x: 1; --y: 1"><a href="#" id="admin-logout-link" title="Logout"><ion-icon name="log-out-outline"></ion-icon></a></span>
+        </div>
+        <div class="close" aria-label="Chiudi" title="Chiudi"><ion-icon name="close-outline"></ion-icon></div>
+      </div>
+    </div>
+    <script>
+      (function () {
+        const navigation = document.querySelector('.admin-menu .navigation');
+        const closeBtn = document.querySelector('.admin-menu .close');
+        const logoutLink = document.getElementById('admin-logout-link');
+        if (navigation) navigation.addEventListener('click', () => navigation.classList.add('active'));
+        if (closeBtn) closeBtn.addEventListener('click', (e) => { e.stopPropagation(); navigation.classList.remove('active'); });
+        if (logoutLink) {
+          logoutLink.addEventListener('click', async (e) => {
+            e.preventDefault();
+            try { await fetch('/admin/logout', { method: 'POST', credentials: 'same-origin' }); }
+            finally { window.location.href = '/admin/login'; }
+          });
+        }
+      })();
+    </script>
+  </body>
+  </html>
+

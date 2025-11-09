@@ -10,6 +10,7 @@ from app.routers import ai
 from app.database import Base, get_db, get_engine
 from sqlalchemy import text
 from app import models, security
+from app import inventory as inventory_svc
 import os
 import socket
 import qrcode
@@ -165,6 +166,180 @@ def _ensure_schema() -> None:
     # Run again is harmless; kept for idempotency
     Base.metadata.create_all(bind=engine)
     _bootstrap_admin()
+
+    # Seed minimal inventory (items, recipes, and initial stock) if empty
+    with engine.begin() as connection:
+        count_items = connection.execute(text("SELECT COUNT(*) FROM inventory_items")).scalar() or 0
+        if count_items == 0:
+            # Inventory items (sku, name, unit)
+            items = [
+                ("COFFEE-BEANS", "Coffee beans", "g"),
+                ("MILK", "Milk", "ml"),
+                ("ORANGE-JUICE", "Orange juice", "ml"),
+                ("WATER-STILL", "Water (still)", "ml"),
+                ("WATER-SPARK", "Water (sparkling)", "ml"),
+                ("ICED-TEA", "Iced tea", "ml"),
+                ("BEER-KEG", "Beer (keg)", "ml"),
+                ("WINE-WHITE", "Wine (white)", "ml"),
+                ("WINE-RED", "Wine (red)", "ml"),
+                ("APEROL", "Aperol", "ml"),
+                ("PROSECCO", "Prosecco", "ml"),
+                ("SODA", "Soda water", "ml"),
+                ("GIN", "Gin", "ml"),
+                ("CAMPARI", "Campari", "ml"),
+                ("VERMOUTH-ROSSO", "Vermouth Rosso", "ml"),
+                ("RUM", "Rum", "ml"),
+                ("VODKA", "Vodka", "ml"),
+                ("COFFEE-LIQUEUR", "Coffee liqueur", "ml"),
+                ("LIME", "Lime", "pcs"),
+                ("MINT", "Mint", "g"),
+                ("SUGAR-SYRUP", "Sugar syrup", "ml"),
+                ("ICE-CUBE", "Ice cube", "pcs"),
+                ("ORANGE", "Orange", "pcs"),
+            ]
+            for sku, name, unit in items:
+                connection.execute(
+                    text("INSERT INTO inventory_items (sku, name, unit, created_at) VALUES (:sku,:name,:unit, NOW()) ON CONFLICT (sku) DO NOTHING"),
+                    {"sku": sku, "name": name, "unit": unit},
+                )
+
+            # Map SKUs to IDs
+            sku_to_id = {}
+            res = connection.execute(text("SELECT id, sku FROM inventory_items"))
+            for row in res:
+                sku_to_id[row[1]] = row[0]
+
+            # Recipes for existing menu product IDs
+            recipes = [
+                # product_id, yield_qty, yield_unit
+                (1, 1, "pcs"),   # Espresso
+                (2, 1, "pcs"),   # Espresso Macchiato
+                (3, 1, "pcs"),   # Cappuccino
+                (4, 1, "pcs"),   # Latte Macchiato
+                (5, 1, "pcs"),   # Americano
+                (20, 1, "pcs"),  # Orange juice
+                (21, 1, "pcs"),  # Water still (bottle)
+                (22, 1, "pcs"),  # Water sparkling (bottle)
+                (23, 1, "pcs"),  # Iced tea
+                (40, 1, "pcs"),  # Beer 330ml
+                (41, 1, "pcs"),  # White wine glass
+                (42, 1, "pcs"),  # Red wine glass
+                (60, 1, "pcs"),  # Spritz
+                (61, 1, "pcs"),  # Negroni
+                (80, 1, "pcs"),  # Mojito
+                (81, 1, "pcs"),  # Espresso Martini
+            ]
+            for pid, yq, yu in recipes:
+                connection.execute(
+                    text("INSERT INTO recipes (product_id, yield_qty, yield_unit) VALUES (:pid,:yq,:yu) ON CONFLICT (product_id) DO NOTHING"),
+                    {"pid": pid, "yq": yq, "yu": yu},
+                )
+
+            # Recipe components per product (component sku, qty, unit)
+            def comp(product_id, sku, qty, unit):
+                return {
+                    "recipe_item_id": product_id,
+                    "component_item_id": sku_to_id.get(sku),
+                    "qty": qty,
+                    "unit": unit,
+                }
+
+            comps = []
+            # Coffee drinks
+            comps += [comp(1, "COFFEE-BEANS", 7, "g")]
+            comps += [comp(2, "COFFEE-BEANS", 7, "g"), comp(2, "MILK", 20, "ml")]
+            comps += [comp(3, "COFFEE-BEANS", 7, "g"), comp(3, "MILK", 150, "ml")]
+            comps += [comp(4, "COFFEE-BEANS", 7, "g"), comp(4, "MILK", 200, "ml")]
+            comps += [comp(5, "COFFEE-BEANS", 7, "g")]
+            # Soft drinks
+            comps += [comp(20, "ORANGE-JUICE", 250, "ml")]
+            comps += [comp(21, "WATER-STILL", 500, "ml")]
+            comps += [comp(22, "WATER-SPARK", 500, "ml")]
+            comps += [comp(23, "ICED-TEA", 330, "ml")]
+            # Beer & wine
+            comps += [comp(40, "BEER-KEG", 330, "ml")]
+            comps += [comp(41, "WINE-WHITE", 150, "ml")]
+            comps += [comp(42, "WINE-RED", 150, "ml")]
+            # Aperitivi
+            comps += [comp(60, "APEROL", 60, "ml"), comp(60, "PROSECCO", 90, "ml"), comp(60, "SODA", 30, "ml"), comp(60, "ICE-CUBE", 3, "pcs"), comp(60, "ORANGE", 0.2, "pcs")]
+            comps += [comp(61, "GIN", 30, "ml"), comp(61, "CAMPARI", 30, "ml"), comp(61, "VERMOUTH-ROSSO", 30, "ml"), comp(61, "ICE-CUBE", 3, "pcs"), comp(61, "ORANGE", 0.2, "pcs")]
+            # Cocktails
+            comps += [comp(80, "RUM", 50, "ml"), comp(80, "SODA", 100, "ml"), comp(80, "LIME", 0.5, "pcs"), comp(80, "MINT", 3, "g"), comp(80, "SUGAR-SYRUP", 10, "ml"), comp(80, "ICE-CUBE", 4, "pcs")]
+            comps += [comp(81, "VODKA", 40, "ml"), comp(81, "COFFEE-LIQUEUR", 20, "ml"), comp(81, "COFFEE-BEANS", 7, "g"), comp(81, "ICE-CUBE", 3, "pcs")]
+
+            for c in comps:
+                if not c["component_item_id"]:
+                    continue
+                connection.execute(
+                    text(
+                        "INSERT INTO recipe_components (recipe_item_id, component_item_id, qty_per_yield, unit) "
+                        "VALUES (:rid,:cid,:qty,:unit)"
+                    ),
+                    {"rid": c["recipe_item_id"], "cid": c["component_item_id"], "qty": c["qty"], "unit": c["unit"]},
+                )
+
+            # Seed starting stock via movements (receive)
+            seed_stock = [
+                ("COFFEE-BEANS", 5000, "g"),
+                ("MILK", 20000, "ml"),
+                ("ORANGE-JUICE", 5000, "ml"),
+                ("WATER-STILL", 20000, "ml"),
+                ("WATER-SPARK", 20000, "ml"),
+                ("ICED-TEA", 5000, "ml"),
+                ("BEER-KEG", 50000, "ml"),
+                ("WINE-WHITE", 10000, "ml"),
+                ("WINE-RED", 10000, "ml"),
+                ("APEROL", 5000, "ml"),
+                ("PROSECCO", 10000, "ml"),
+                ("SODA", 20000, "ml"),
+                ("GIN", 5000, "ml"),
+                ("CAMPARI", 5000, "ml"),
+                ("VERMOUTH-ROSSO", 5000, "ml"),
+                ("RUM", 5000, "ml"),
+                ("VODKA", 5000, "ml"),
+                ("COFFEE-LIQUEUR", 3000, "ml"),
+                ("LIME", 50, "pcs"),
+                ("MINT", 500, "g"),
+                ("SUGAR-SYRUP", 3000, "ml"),
+                ("ICE-CUBE", 1000, "pcs"),
+                ("ORANGE", 50, "pcs"),
+            ]
+            for sku, qty, unit in seed_stock:
+                item_id = sku_to_id.get(sku)
+                if not item_id:
+                    continue
+                # Unique seed movement per item
+                exists = connection.execute(
+                    text(
+                        "SELECT 1 FROM stock_movements WHERE item_id=:iid AND reason='receive' AND ref_type='seed' AND ref_id=:rid"
+                    ),
+                    {"iid": item_id, "rid": item_id},
+                ).first()
+                if exists:
+                    continue
+                connection.execute(
+                    text(
+                        "INSERT INTO stock_movements (item_id, location_id, qty_delta, unit, reason, ref_type, ref_id, occurred_at) "
+                        "VALUES (:iid, 0, :q, :u, 'receive', 'seed', :rid, NOW())"
+                    ),
+                    {"iid": item_id, "q": qty, "u": unit, "rid": item_id},
+                )
+                # Upsert level
+                # Ensure stock level row
+                connection.execute(
+                    text(
+                        "INSERT INTO stock_levels (item_id, location_id, qty_on_hand_cached, updated_at) "
+                        "VALUES (:iid, 0, 0, NOW()) ON CONFLICT (item_id, location_id) DO NOTHING"
+                    ),
+                    {"iid": item_id},
+                )
+                # Update cached qty
+                connection.execute(
+                    text(
+                        "UPDATE stock_levels SET qty_on_hand_cached = COALESCE(qty_on_hand_cached,0) + :q, updated_at = NOW() WHERE item_id=:iid AND location_id=0"
+                    ),
+                    {"iid": item_id, "q": qty},
+                )
 
 
 @app.on_event("startup")
@@ -474,6 +649,13 @@ def mark_order_checkout(
             amount=order.total_amount,
         )
         db.add(transaction)
+    # Consume inventory based on recipes before committing
+    try:
+        inventory_svc.consume_stock_for_order(db, order, created_by="checkout")
+    except Exception:
+        # Fail-safe: do not block checkout if inventory fails; consider logging in real setup
+        pass
+
     db.commit()
 
     return RedirectResponse(url="/admin/orders", status_code=303)
@@ -677,3 +859,107 @@ def list_closed_orders(
             "selected_day": selected_day,
         },
     )
+
+
+@app.get("/admin/inventory", response_class=HTMLResponse)
+def admin_inventory(request: Request, db: Session = Depends(get_db)):
+    if not security.get_admin_from_request(request, db):
+        return RedirectResponse(url="/admin/login", status_code=303)
+    rows = (
+        db.query(models.InventoryItem, models.StockLevel)
+        .outerjoin(models.StockLevel, (models.StockLevel.item_id == models.InventoryItem.id) & (models.StockLevel.location_id == 0))
+        .order_by(models.InventoryItem.name)
+        .all()
+    )
+    items = [
+        {
+            "sku": itm.sku,
+            "name": itm.name,
+            "unit": itm.unit,
+            "qty": float((lvl.qty_on_hand_cached if lvl else 0) or 0),
+        }
+        for itm, lvl in rows
+    ]
+    return templates.TemplateResponse(
+        "inventory.html",
+        {"request": request, "items": items},
+    )
+
+
+@app.post("/admin/inventory/adjust")
+def admin_inventory_adjust(
+    request: Request,
+    sku: str = Form(...),
+    delta: float = Form(...),
+    unit: str = Form("pcs"),
+    reason: str = Form("adjust"),
+    db: Session = Depends(get_db),
+):
+    if not security.get_admin_from_request(request, db):
+        return RedirectResponse(url="/admin/login", status_code=303)
+    item = db.query(models.InventoryItem).filter(models.InventoryItem.sku == sku).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Inventory item not found")
+    inventory_svc._record_movement(
+        db,
+        item_id=item.id,
+        qty_delta=delta,
+        unit=unit or item.unit,
+        reason=reason,
+        ref_type="admin-adjust",
+        ref_id=0,
+        created_by="admin",
+    )
+    db.commit()
+    return RedirectResponse(url="/admin/inventory", status_code=303)
+
+
+# ===================
+# Minimal inventory API
+# ===================
+from pydantic import BaseModel
+
+
+class InventoryAdjust(BaseModel):
+    item_sku: str
+    qty_delta: float
+    unit: str = "pcs"
+    reason: str = "adjust"
+
+
+@app.get("/api/inventory/levels")
+def get_inventory_levels(db: Session = Depends(get_db), admin: models.StaffUser = Depends(security.require_admin_api)):
+    rows = (
+        db.query(models.StockLevel, models.InventoryItem)
+        .join(models.InventoryItem, models.InventoryItem.id == models.StockLevel.item_id)
+        .all()
+    )
+    return [
+        {
+            "sku": item.sku,
+            "name": item.name,
+            "qty_on_hand": float(level.qty_on_hand_cached or 0),
+            "unit": item.unit,
+        }
+        for level, item in rows
+    ]
+
+
+@app.post("/api/inventory/adjust")
+def adjust_inventory(payload: InventoryAdjust, db: Session = Depends(get_db), admin: models.StaffUser = Depends(security.require_admin_api)):
+    item = db.query(models.InventoryItem).filter(models.InventoryItem.sku == payload.item_sku).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Inventory item not found")
+
+    inventory_svc._record_movement(
+        db,
+        item_id=item.id,
+        qty_delta=payload.qty_delta,
+        unit=payload.unit,
+        reason=payload.reason,
+        ref_type="adjust",
+        ref_id=0,
+        created_by="api",
+    )
+    db.commit()
+    return {"ok": True}
