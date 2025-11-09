@@ -630,6 +630,7 @@ def dashboard_summary(
 def list_closed_orders(
     request: Request,
     day: str | None = Query(default=None, description="Date in YYYY-MM-DD format"),
+    hour: int | None = Query(default=None, ge=0, le=23, description="Optional hour filter 0-23"),
     db: Session = Depends(get_db),
 ):
     if not security.get_admin_from_request(request, db):
@@ -644,9 +645,14 @@ def list_closed_orders(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
 
-    # Set start and end for the selected day
-    start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
-    end = start + timedelta(days=1)
+    # Set start and end for the selected day or hour window
+    start_of_day = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    if hour is not None:
+        start = start_of_day + timedelta(hours=hour)
+        end = start + timedelta(hours=1)
+    else:
+        start = start_of_day
+        end = start + timedelta(days=1)
 
     # Query closed orders created between start and end
     orders = (

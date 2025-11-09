@@ -131,8 +131,13 @@
         border-radius: 8px;
       }
       .heatmap-table th.heatmap-corner {
-        background: transparent;
+        /* Top-left corner needs a solid bg for stickiness */
+        background: rgba(78,52,46,0.08);
       }
+      /* Sticky headers: top row and first column */
+      .heatmap-table thead th { position: sticky; top: 0; z-index: 2; }
+      .heatmap-table tbody th { position: sticky; left: 0; z-index: 1; }
+      .heatmap-table thead th.heatmap-corner { left: 0; z-index: 3; }
       .heatmap-table td {
         padding: 0;
       }
@@ -370,6 +375,11 @@
             const amount = cell ? cell.total_amount : 0;
             return `${formatDateLabel(row)} alle ${String(col).padStart(2, '0')}:00 — ${value} ordini, € ${amount.toFixed(2)}`;
           },
+          onCellClick: (rowDate, colHour) => {
+            const day = rowDate;
+            const hh = String(colHour).padStart(2, '0');
+            window.location.href = `/admin/orders/closed?day=${day}&hour=${hh}`;
+          }
         });
       }
 
@@ -391,10 +401,20 @@
             const amount = cell ? cell.total_amount : 0;
             return `Settimana ${formatWeekRange(row)} · ${col.label}: ${value} ordini, € ${amount.toFixed(2)}`;
           },
+          onCellClick: (weekStartIso, colDay) => {
+            const base = new Date(`${weekStartIso}T00:00:00`);
+            const offset = (colDay.index + 6) % 7; // map Mon(1)->0 ... Sun(0)->6
+            base.setDate(base.getDate() + offset);
+            const year = base.getFullYear();
+            const month = String(base.getMonth() + 1).padStart(2, '0');
+            const day = String(base.getDate()).padStart(2, '0');
+            const iso = `${year}-${month}-${day}`;
+            window.location.href = `/admin/orders/closed?day=${iso}`;
+          }
         });
       }
 
-      function renderHeatmap({ container, rows, cols, values, getKey, formatRowLabel, formatColLabel, valueAccessor, tooltipBuilder }) {
+      function renderHeatmap({ container, rows, cols, values, getKey, formatRowLabel, formatColLabel, valueAccessor, tooltipBuilder, onCellClick }) {
         if (!container) {
           return;
         }
@@ -460,6 +480,14 @@
             td.title = tooltipText;
             td.setAttribute('tabindex', '0');
             td.setAttribute('aria-label', tooltipText);
+            if (onCellClick) {
+              td.addEventListener('click', () => onCellClick(row, col, cellData, value));
+              td.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onCellClick(row, col, cellData, value); }
+              });
+              td.style.cursor = 'pointer';
+              td.setAttribute('role', 'button');
+            }
             tr.appendChild(td);
           });
 
