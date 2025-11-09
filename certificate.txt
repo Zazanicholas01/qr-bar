@@ -37,3 +37,8 @@ helm upgrade --install qr-app charts/qr-app -n qr -f charts/qr-app/values.yaml \
             - Update FRONTEND_PUBLIC_URL in values.yaml
             - Update ipAddresses and ingress.tls / ingress.hosts IP Entries
             - Re-Apply Certificate and Upgrade Helm        
+
+######################### GIT & GITHUB ACTIONS #######################################
+
+gh run list -w "Build and Publish Docker Images" -b inventory -L 1 --json headSha | jq -r '.[0].headSha[0:7]'
+    --> Get the latest SHA tag of the last built image

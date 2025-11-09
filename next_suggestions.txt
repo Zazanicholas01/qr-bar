@@ -132,3 +132,38 @@ Espresso Martini(81): 40 ml Vodka + 20 ml Coffee liqueur + 7 g beans + 3 pcs Ice
 
 Starting stock (examples): beans 5000 g, milk 20000 ml, beer 50000 ml, wines 10000 ml, spirits 5000 ml, mixers 20000 ml, limes 50 pcs, ice 1000 pcs, etc.
 
+
+
+##################### FIRST WORKING VERSION INVENTORY #######################################à
+
+    GENERAL
+        - Route GET /admin/inventory --> Renders Current Stock at Default Location
+                                    --> Shows a Tuning Form for Manual Adjustments
+    
+    DATA MODEL
+        - Items --> InventoryItem with SKU / Name / Unit
+        - Per-Movement Audit --> StockMovement with qty_delta / unit / reason / ref_type / ref_id
+        - Cached Quantity per Location --> StockLevel keyed with item_id / location_id
+    
+    LISTING STOCK
+        - Handler --> Loads Stock for Default Location
+        - Query and Join Logic
+        - Renders inventory.html --> Lists SKU / Name / qty / unit --> Shows Tuning Form
+    
+    ADJUST FORM
+        - Form --> POST /admin/inventory/adjust --> SKU / Delta / Unit / Reason
+        - Handler --> Validates Admin --> Resolves the Item by SKU --> Records Stock Movement
+        - inventory.record_movement Call
+        - Appends a StockMovement record and updates StockLevel for default Location
+    
+    WITH ORDERS
+        - Consumed at Checkout
+        - POST /admin/orders/<order_id>/checkout
+        - After Setting order.status to closed --> Calls inventory.consume_stock_for_order
+        - For each OrderItem --> Lookup the Recipe by product_id
+        - For each RecipeComponent --> Calculates qty --> Records Negative Delta Movement with reason Sale and ref_type to Order
+        - Stock Table at /admin/inventory reflects the changes
+    
+    APIs
+        - GET /api/inventory/levels --> Return SKU / Name / qty / Unit
+        - POST /api/inventory/adjust --> Mirrors the admin form
