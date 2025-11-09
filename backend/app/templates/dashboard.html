@@ -90,6 +90,22 @@
         font-size: 1.1rem;
         color: #4e342e;
       }
+      .chart-card--heatmap {
+        display: flex;
+        flex-direction: column;
+        height: 360px;
+      }
+      .chart-card--heatmap h3 {
+        margin-bottom: 0.75rem;
+      }
+      .chart-card--heatmap .heatmap {
+        flex: 1;
+        min-height: 0;
+      }
+      .chart-card--heatmap .heatmap-scroller {
+        flex: 1;
+        overflow: auto;
+      }
       .heatmap {
         display: flex;
         flex-direction: column;
@@ -209,11 +225,11 @@
           <h3>Metodi di pagamento</h3>
           <canvas id="payments-chart"></canvas>
         </div>
-        <div class="chart-card">
+        <div class="chart-card chart-card--heatmap">
           <h3>Ordini per ora (ultimi 7 giorni)</h3>
           <div class="heatmap" id="hourly-heatmap"></div>
         </div>
-        <div class="chart-card">
+        <div class="chart-card chart-card--heatmap">
           <h3>Ordini per giorno della settimana (ultime 8 settimane)</h3>
           <div class="heatmap" id="dow-heatmap"></div>
         </div>
