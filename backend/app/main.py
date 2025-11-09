@@ -631,40 +631,45 @@ def mark_order_checkout(
     payment_method: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    if not security.get_admin_from_request(request, db):
-        return RedirectResponse(url="/admin/login", status_code=303)
-    
-    # Search for the order
-    order = db.query(models.Order).filter(models.Order.id == order_id).first()
-    if order is None:
-        raise HTTPException(status_code=404, detail="Order not found")
-
-    # Validate payment method
-    method = payment_method.strip().lower()
-    if method not in PAYMENT_METHODS:
-        raise HTTPException(status_code=400, detail="Unsupported payment method")
-
-    # Mark order as closed and create transaction record on the DB
-    order.status = "closed"
-    if order.transaction:
-        order.transaction.method = method
-        order.transaction.amount = order.total_amount
-        order.transaction.created_at = datetime.utcnow()
-    else:
-        transaction = models.Transaction(
-            order=order,
-            method=method,
-            amount=order.total_amount,
-        )
-        db.add(transaction)
-    # Consume inventory based on recipes before committing
     try:
-        inventory_svc.consume_stock_for_order(db, order, created_by="checkout")
-    except Exception:
-        # Fail-safe: do not block checkout if inventory fails; consider logging in real setup
-        pass
+        if not security.get_admin_from_request(request, db):
+            return RedirectResponse(url="/admin/login", status_code=303)
 
-    db.commit()
+        # Search for the order
+        order = db.query(models.Order).filter(models.Order.id == order_id).first()
+        if order is None:
+            raise HTTPException(status_code=404, detail="Order not found")
+
+        # Validate payment method
+        method = payment_method.strip().lower()
+        if method not in PAYMENT_METHODS:
+            raise HTTPException(status_code=400, detail="Unsupported payment method")
+
+        # Mark order as closed and create transaction record on the DB
+        order.status = "closed"
+        if order.transaction:
+            order.transaction.method = method
+            order.transaction.amount = order.total_amount
+            order.transaction.created_at = datetime.utcnow()
+        else:
+            transaction = models.Transaction(
+                order=order,
+                method=method,
+                amount=order.total_amount,
+            )
+            db.add(transaction)
+
+        # Consume inventory based on recipes before committing
+        try:
+            inventory_svc.consume_stock_for_order(db, order, created_by="checkout")
+        except Exception:
+            # Fail-safe: do not block checkout if inventory fails; consider logging in real setup
+            pass
+
+        db.commit()
+    except Exception:
+        db.rollback()
+        return RedirectResponse(url="/admin/orders", status_code=303)
 
     return RedirectResponse(url="/admin/orders", status_code=303)
 
