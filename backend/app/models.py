@@ -175,6 +175,6 @@ class StockLevel(Base):
     __tablename__ = "stock_levels"
 
     item_id = Column(Integer, ForeignKey("inventory_items.id", ondelete="CASCADE"), primary_key=True)
-    location_id = Column(Integer, ForeignKey("inventory_locations.id", ondelete="CASCADE"), primary_key=True, nullable=False, default=0)
+    location_id = Column(Integer, ForeignKey("inventory_locations.id", ondelete="CASCADE"), primary_key=True, nullable=False)
     qty_on_hand_cached = Column(Numeric(12, 3), nullable=False, default=0)
     updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)

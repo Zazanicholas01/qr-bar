@@ -169,8 +169,23 @@ def _ensure_schema() -> None:
 
     # Seed minimal inventory (items, recipes, and initial stock) if empty
     with engine.begin() as connection:
+        # Take an advisory lock to avoid concurrent seeding across replicas
+        got_lock = connection.execute(
+            text("SELECT pg_try_advisory_lock( hashtextextended('inventory_seed', 0) )")
+        ).scalar()
+        if not got_lock:
+            return
+        try:
         count_items = connection.execute(text("SELECT COUNT(*) FROM inventory_items")).scalar() or 0
         if count_items == 0:
+            # Ensure default location exists and get its id
+            connection.execute(
+                text("INSERT INTO inventory_locations (name, created_at) VALUES ('Default', NOW()) ON CONFLICT (name) DO NOTHING")
+            )
+            default_loc_id = connection.execute(
+                text("SELECT id FROM inventory_locations WHERE name='Default'")
+            ).scalar()
+
             # Inventory items (sku, name, unit)
             items = [
                 ("COFFEE-BEANS", "Coffee beans", "g"),
@@ -308,38 +323,31 @@ def _ensure_schema() -> None:
                 item_id = sku_to_id.get(sku)
                 if not item_id:
                     continue
-                # Unique seed movement per item
-                exists = connection.execute(
-                    text(
-                        "SELECT 1 FROM stock_movements WHERE item_id=:iid AND reason='receive' AND ref_type='seed' AND ref_id=:rid"
-                    ),
-                    {"iid": item_id, "rid": item_id},
-                ).first()
-                if exists:
-                    continue
-                connection.execute(
-                    text(
-                        "INSERT INTO stock_movements (item_id, location_id, qty_delta, unit, reason, ref_type, ref_id, occurred_at) "
-                        "VALUES (:iid, 0, :q, :u, 'receive', 'seed', :rid, NOW())"
-                    ),
-                    {"iid": item_id, "q": qty, "u": unit, "rid": item_id},
-                )
-                # Upsert level
-                # Ensure stock level row
+                # Ensure stock level row for default location
                 connection.execute(
                     text(
                         "INSERT INTO stock_levels (item_id, location_id, qty_on_hand_cached, updated_at) "
-                        "VALUES (:iid, 0, 0, NOW()) ON CONFLICT (item_id, location_id) DO NOTHING"
+                        "VALUES (:iid, :loc, 0, NOW()) ON CONFLICT (item_id, location_id) DO NOTHING"
                     ),
-                    {"iid": item_id},
+                    {"iid": item_id, "loc": default_loc_id},
                 )
-                # Update cached qty
+                # Insert seed movement if not already present; then update cached qty only if inserted
                 connection.execute(
                     text(
-                        "UPDATE stock_levels SET qty_on_hand_cached = COALESCE(qty_on_hand_cached,0) + :q, updated_at = NOW() WHERE item_id=:iid AND location_id=0"
+                        "WITH ins AS (\n"
+                        "  INSERT INTO stock_movements (item_id, location_id, qty_delta, unit, reason, ref_type, ref_id, occurred_at)\n"
+                        "  VALUES (:iid, :loc, :q, :u, 'receive', 'seed', :rid, NOW())\n"
+                        "  ON CONFLICT ON CONSTRAINT uq_movement_idem DO NOTHING\n"
+                        "  RETURNING 1\n"
+                        ")\n"
+                        "UPDATE stock_levels SET qty_on_hand_cached = COALESCE(qty_on_hand_cached,0) + :q, updated_at = NOW()\n"
+                        "WHERE item_id = :iid AND location_id = :loc AND EXISTS (SELECT 1 FROM ins)"
                     ),
-                    {"iid": item_id, "q": qty},
+                    {"iid": item_id, "loc": default_loc_id, "q": qty, "u": unit, "rid": item_id},
                 )
+        finally:
+            # Release advisory lock
+            connection.execute(text("SELECT pg_advisory_unlock( hashtextextended('inventory_seed', 0) )"))
 
 
 @app.on_event("startup")
@@ -865,9 +873,15 @@ def list_closed_orders(
 def admin_inventory(request: Request, db: Session = Depends(get_db)):
     if not security.get_admin_from_request(request, db):
         return RedirectResponse(url="/admin/login", status_code=303)
+    # Resolve default location id for display
+    default_loc = db.query(models.InventoryLocation).filter(models.InventoryLocation.name == "Default").first()
+    default_loc_id = default_loc.id if default_loc else None
+    join_cond = (models.StockLevel.item_id == models.InventoryItem.id)
+    if default_loc_id is not None:
+        join_cond = join_cond & (models.StockLevel.location_id == default_loc_id)
     rows = (
         db.query(models.InventoryItem, models.StockLevel)
-        .outerjoin(models.StockLevel, (models.StockLevel.item_id == models.InventoryItem.id) & (models.StockLevel.location_id == 0))
+        .outerjoin(models.StockLevel, join_cond)
         .order_by(models.InventoryItem.name)
         .all()
     )

@@ -8,8 +8,19 @@ from sqlalchemy import and_
 from . import models
 
 
+def _get_default_location_id(db: Session) -> int:
+    """Resolve or create the default inventory location and return its id."""
+    loc = db.query(models.InventoryLocation).filter(models.InventoryLocation.name == "Default").first()
+    if loc:
+        return loc.id
+    loc = models.InventoryLocation(name="Default")
+    db.add(loc)
+    db.flush()
+    return loc.id
+
+
 def _get_or_create_stock_level(db: Session, item_id: int, location_id: int | None = None) -> models.StockLevel:
-    loc_id = location_id or 0
+    loc_id = location_id if location_id is not None else _get_default_location_id(db)
     level = db.query(models.StockLevel).filter(
         models.StockLevel.item_id == item_id,
         models.StockLevel.location_id == loc_id,
@@ -46,7 +57,7 @@ def _record_movement(
 
     mv = models.StockMovement(
         item_id=item_id,
-        location_id=location_id or 0,
+        location_id=location_id if location_id is not None else _get_default_location_id(db),
         qty_delta=qty_delta,
         unit=unit,
         reason=reason,
@@ -58,7 +69,7 @@ def _record_movement(
     db.add(mv)
 
     # Update cached level
-    level = _get_or_create_stock_level(db, item_id=item_id, location_id=location_id)
+    level = _get_or_create_stock_level(db, item_id=item_id, location_id=location_id if location_id is not None else _get_default_location_id(db))
     level.qty_on_hand_cached = (level.qty_on_hand_cached or Decimal("0")) + Decimal(qty_delta)
     level.updated_at = datetime.utcnow()
 
@@ -103,4 +114,3 @@ def consume_stock_for_order(db: Session, order: models.Order, *, location_id: in
                 location_id=location_id,
                 created_by=created_by,
             )
-
