@@ -37,6 +37,13 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.hostIP
+            {{- if .Values.mailpit.enabled }}
+            # Default SMTP target wired to in-cluster Mailpit (overridden by explicit SMTP_HOST/SMTP_PORT)
+            - name: SMTP_DEFAULT_HOST
+              value: {{ printf "%s-mailpit" (include "qr-app.fullname" .) | quote }}
+            - name: SMTP_DEFAULT_PORT
+              value: {{ .Values.mailpit.service.smtpPort | quote }}
+            {{- end }}
             {{- with .Values.env.backend }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

@@ -1,0 +1,67 @@
+{{- if .Values.mailpit.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "qr-app.fullname" . }}-mailpit
+  labels:
+    {{- include "qr-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mailpit
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "qr-app.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: mailpit
+  template:
+    metadata:
+      labels:
+        {{- include "qr-app.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: mailpit
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: mailpit
+          image: {{ .Values.mailpit.image | default "axllent/mailpit:latest" | quote }}
+          ports:
+            - name: smtp
+              containerPort: {{ .Values.mailpit.service.smtpPort | default 1025 }}
+            - name: http
+              containerPort: {{ .Values.mailpit.service.httpPort | default 8025 }}
+          env:
+            - name: MP_SMTP_BIND_ADDR
+              value: ":{{ .Values.mailpit.service.smtpPort | default 1025 }}"
+            - name: MP_UI_BIND_ADDR
+              value: ":{{ .Values.mailpit.service.httpPort | default 8025 }}"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "qr-app.fullname" . }}-mailpit
+  labels:
+    {{- include "qr-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mailpit
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "qr-app.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: mailpit
+  ports:
+    - name: smtp
+      port: {{ .Values.mailpit.service.smtpPort | default 1025 }}
+      targetPort: smtp
+    - name: http
+      port: {{ .Values.mailpit.service.httpPort | default 8025 }}
+      targetPort: http
+{{- end }}
+

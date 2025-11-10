@@ -164,3 +164,11 @@ metabase:
     lastName: User
   # Setup token shared between Deployment and bootstrap Job
   setupToken: bootstrap-token
+
+# Mailpit (dev SMTP sink)
+mailpit:
+  enabled: true
+  image: axllent/mailpit:latest
+  service:
+    smtpPort: 1025
+    httpPort: 8025
