@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
+shopt -s expand_aliases
 
 # Simple helper to redeploy after GitHub Actions builds finish on the "inventory" branch.
 # Requirements: gh, jq, helm, kubectl all configured locally with access to the target cluster.
+# When using MicroK8s we alias kubectl/helm to the bundled binaries for convenience.
+alias kubectl="microk8s kubectl"
+alias helm="microk8s helm3"
 
 WORKFLOW_NAME="Build and Publish Docker Images"
 BRANCH_NAME="${1:-inventory}"

@@ -167,3 +167,39 @@ Starting stock (examples): beans 5000 g, milk 20000 ml, beer 50000 ml, wines 100
     APIs
         - GET /api/inventory/levels --> Return SKU / Name / qty / Unit
         - POST /api/inventory/adjust --> Mirrors the admin form
+
+
+############## AUTHENTICATION & AUTHORIZATION ##################################################
+
+    FRONTEND
+        - Load on QR Scan
+        - OPTIONS
+            - Guest (Anonymous Session)
+            - Web Authentication (Name & Password)
+            - Sign Up with Google
+        
+        - Replace autoLogin() with Session & Cookies
+    
+    BACKEND
+        - Add an auth Router
+        - POST /auth/session/anonymous --> Create guest user linked to table_code
+        - POST auth/webauthn/register/options && /auth/webauthn/register/verify
+        - POST /auth/webauthn/login/options && /auth/webauthn/login/verify
+        - GET /auth/session --> Return Current State
+        - POST /auth/logout --> Clear Cookie Session
+    
+    ADMIN AUTHENTICATION
+        - OAuth 2.0 + OIDC
+        - Rate Limiting on Admin Endpoints
+        - Manage Logs
+    
+    DATA MODEL
+        - Sessions Table
+        - Refactor Users Table
+
+    IMPLEMENTATION
+        - 1 - Backend --> add /auth/session/anonymous --> Set secure Cookies --> Adjust Users
+              Frontend --> Gate on MenuPage --> Continue as Guest Option
+        
+        - 2 - WebAuthn Endpoints and UI Buttons
+        - 3 - 

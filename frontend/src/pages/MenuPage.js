@@ -23,7 +23,7 @@ function MenuPage() {
   const [isSavingInfo, setIsSavingInfo] = useState(false);
   const [infoFeedback, setInfoFeedback] = useState(null);
   const [userError, setUserError] = useState(null);
-  const [isAuthenticating, setIsAuthenticating] = useState(true);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -32,6 +32,8 @@ function MenuPage() {
   const [filters, setFilters] = useState([]);
   // Track which cards are flipped (by item id)
   const [flipped, setFlipped] = useState(() => new Set());
+  // Simple gate to prompt the user to start a guest session
+  const [showAuthGate, setShowAuthGate] = useState(true);
 
   const isFlipped = (id) => flipped.has(id);
   const toggleFlip = (id) => {
@@ -109,39 +111,45 @@ function MenuPage() {
     return () => clearTimeout(timerId);
   }, [searchQuery]);
 
+  // On table change, try to reuse a previous guest session for this table in this tab
   useEffect(() => {
-    let isMounted = true;
-    setIsAuthenticating(true);
     setUserError(null);
     setUserId(null);
-
-    autoLogin(tableId)
-      .then(user => {
-        if (isMounted) {
-          setUserId(user.id);
-          setUserInfo({
-            name: user.name || "",
-            email: user.email || "",
-            phone: user.phone || "",
-            age: user.age != null ? String(user.age) : "",
-          });
-        }
-      })
-      .catch(err => {
-        if (isMounted) {
-          setUserError(err.message || "Impossibile avviare la sessione utente.");
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setIsAuthenticating(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
+    const key = `guest_user_id:${tableId}`;
+    const saved = sessionStorage.getItem(key);
+    if (saved) {
+      const parsed = Number(saved);
+      if (!Number.isNaN(parsed)) {
+        setUserId(parsed);
+        setShowAuthGate(false);
+        return;
+      }
+    }
+    setShowAuthGate(true);
   }, [tableId]);
+
+  // Explicit guest session creation
+  const handleContinueAsGuest = async () => {
+    if (isAuthenticating) return;
+    setIsAuthenticating(true);
+    setUserError(null);
+    try {
+      const user = await autoLogin(tableId);
+      setUserId(user.id);
+      setUserInfo({
+        name: user.name || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        age: user.age != null ? String(user.age) : "",
+      });
+      sessionStorage.setItem(`guest_user_id:${tableId}`, String(user.id));
+      setShowAuthGate(false);
+    } catch (err) {
+      setUserError(err.message || "Impossibile avviare la sessione utente.");
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
 
   if (error) {
     return (
@@ -685,6 +693,60 @@ function MenuPage() {
       <footer>
         Vuoi ordinare qualcos&apos;altro? Basta mostrare questo schermo al barista.
       </footer>
+
+      {showAuthGate && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.45)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+        }}>
+          <div style={{
+            background: "#fff",
+            borderRadius: 14,
+            padding: "1.25rem 1.25rem 1rem",
+            width: "min(420px, 92vw)",
+            boxShadow: "0 16px 36px rgba(0,0,0,0.2)",
+            border: "1px solid rgba(0,0,0,0.08)",
+          }}>
+            <h2 style={{ margin: 0 }}>Benvenuto</h2>
+            <p style={{ marginTop: "0.5rem", opacity: 0.9 }}>
+              Per ordinare, continua come ospite. A breve aggiungeremo anche accesso con passkey o account.
+            </p>
+            {userError && (
+              <div style={{
+                margin: "0.5rem 0 0.75rem",
+                padding: "0.5rem 0.75rem",
+                borderRadius: 8,
+                background: "rgba(229,57,53,0.12)",
+                color: "#7d1916",
+              }}>
+                {userError}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={handleContinueAsGuest}
+              disabled={isAuthenticating}
+              style={{
+                width: "100%",
+                padding: "0.75rem",
+                border: "none",
+                borderRadius: 999,
+                background: "linear-gradient(135deg, #4e342e, #3e2723)",
+                color: "#fff",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              {isAuthenticating ? "Preparazione..." : "Continua come ospite"}
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
