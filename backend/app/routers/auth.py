@@ -11,6 +11,11 @@ from app.security import hash_password, verify_password, create_user_session, cl
 from app.email_utils import send_email
 
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
+_aud_raw = os.environ.get("GOOGLE_AUDIENCES", "")
+GOOGLE_AUDIENCES = {a.strip() for a in _aud_raw.split(",") if a.strip()} if _aud_raw else set()
+if GOOGLE_CLIENT_ID:
+    GOOGLE_AUDIENCES.add(GOOGLE_CLIENT_ID)
+APP_ENV = os.environ.get("APP_ENV", "dev").lower()
 
 router = APIRouter()
 
@@ -41,16 +46,22 @@ def google_sign_in(payload: GoogleLoginPayload, response: Response, request: Req
         raise HTTPException(status_code=500, detail="Google auth not available") from exc
 
     try:
+        # Verify signature and issuer; we'll validate audience manually to support multiple client IDs
         idinfo = google_id_token.verify_oauth2_token(
             payload.credential,
             google_requests.Request(),
-            GOOGLE_CLIENT_ID,
         )
         issuer = idinfo.get("iss")
         if issuer not in {"accounts.google.com", "https://accounts.google.com"}:
             raise ValueError("Invalid issuer")
+        aud = idinfo.get("aud")
+        if GOOGLE_AUDIENCES and aud not in GOOGLE_AUDIENCES:
+            raise ValueError("Invalid audience")
     except Exception as exc:
-        raise HTTPException(status_code=401, detail="Invalid Google credential") from exc
+        detail = "Invalid Google credential"
+        if APP_ENV != "prod":
+            detail = f"Invalid Google credential: {exc}"
+        raise HTTPException(status_code=401, detail=detail)
 
     email = idinfo.get("email")
     email_verified = bool(idinfo.get("email_verified"))
@@ -307,4 +318,7 @@ def email_verify_confirm(token: str, db: Session = Depends(get_db)):
 
 @router.get("/config")
 def auth_config():
-    return {"google_client_id": GOOGLE_CLIENT_ID or ""}
+    return {
+        "google_client_id": GOOGLE_CLIENT_ID or "",
+        "google_audiences": sorted(GOOGLE_AUDIENCES),
+    }
