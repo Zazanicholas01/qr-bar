@@ -973,6 +973,18 @@ def reset_all_cookies_from_admin(request: Request, db: Session = Depends(get_db)
     return response
 
 
+@app.post("/admin/test/revoke-all-user-sessions")
+def revoke_all_user_sessions(request: Request, db: Session = Depends(get_db)):
+    # Optionally require admin; keep simple for testing as other admin endpoints do
+    response = RedirectResponse(url="/admin/", status_code=303)
+    try:
+        db.query(models.AuthSession).delete()
+        db.commit()
+    except Exception:
+        db.rollback()
+    return response
+
+
 # ===================
 # Minimal inventory API
 # ===================

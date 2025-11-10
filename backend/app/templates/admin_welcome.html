@@ -28,7 +28,7 @@
       h1 { margin: 0 0 0.5rem; color: #3e2723; }
       p { margin: 0.25rem 0 1.25rem; color: #4e342e; }
       .actions { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
-      a.button {
+      a.button, button.button {
         display: inline-block;
         padding: 0.7rem 1.1rem;
         border-radius: 999px;
@@ -36,6 +36,8 @@
         background: linear-gradient(135deg, #4e342e, #3e2723);
         color: #fff;
         font-weight: 600;
+        border: none;
+        cursor: pointer;
       }
       .muted { color: #6d4c41; font-size: 0.95rem; }
 
@@ -68,10 +70,13 @@
         </div>
         <div style="margin-top:1rem; display:flex; gap:0.5rem; justify-content:center; flex-wrap:wrap;">
           <form method="post" action="/admin/test/reset-user-session">
-            <button class="button" type="submit" style="background:linear-gradient(135deg,#607d8b,#455a64)">Reset cookie cliente</button>
+            <button class="button" type="submit" style="background:linear-gradient(135deg,#607d8b,#455a64)">Reset cookie cliente (qui)</button>
           </form>
           <form method="post" action="/admin/test/reset-all-cookies" onsubmit="return confirm('Questo ti disconnetterà anche come admin. Procedere?')">
             <button class="button" type="submit" style="background:linear-gradient(135deg,#b71c1c,#7f0000)">Reset tutti i cookie</button>
+          </form>
+          <form method="post" action="/admin/test/revoke-all-user-sessions" onsubmit="return confirm('Revocare tutte le sessioni clienti?')">
+            <button class="button" type="submit" style="background:linear-gradient(135deg,#9C27B0,#6A1B9A)">Revoca tutte le sessioni clienti</button>
           </form>
         </div>
       {% else %}
@@ -82,7 +87,7 @@
         </div>
         <div style="margin-top:1rem; display:flex; gap:0.5rem; justify-content:center; flex-wrap:wrap;">
           <form method="post" action="/admin/test/reset-user-session">
-            <button class="button" type="submit" style="background:linear-gradient(135deg,#607d8b,#455a64)">Reset cookie cliente</button>
+            <button class="button" type="submit" style="background:linear-gradient(135deg,#607d8b,#455a64)">Reset cookie cliente (qui)</button>
           </form>
         </div>
       {% endif %}

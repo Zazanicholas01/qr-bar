@@ -157,6 +157,38 @@ function MenuPage() {
       .catch(() => setShowAuthGate(true));
   }, [tableId]);
 
+  // Heartbeat to detect revoked/expired sessions and prompt re-auth
+  useEffect(() => {
+    let timerId;
+    const revalidate = () => {
+      fetchSession()
+        .then(sessUser => {
+          const valid = !!(sessUser && sessUser.id);
+          if (!valid && !showAuthGate) {
+            // Clear local references and prompt auth
+            setUserId(null);
+            setUserInfo({ name: "", email: "", phone: "", age: "" });
+            setUserVerified(false);
+            setShowAuthGate(true);
+          }
+        })
+        .catch(() => {
+          if (!showAuthGate) setShowAuthGate(true);
+        });
+    };
+    // periodic check
+    timerId = setInterval(revalidate, 20000);
+    // on tab focus
+    const onFocus = () => revalidate();
+    window.addEventListener('visibilitychange', onFocus);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearInterval(timerId);
+      window.removeEventListener('visibilitychange', onFocus);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [showAuthGate]);
+
   // Fetch runtime auth configuration if env not present
   useEffect(() => {
     if (googleClientId) return;
