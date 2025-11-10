@@ -945,6 +945,34 @@ def admin_inventory_adjust(
     return RedirectResponse(url="/admin/inventory", status_code=303)
 
 
+# =====================
+# Testing helpers (cookie reset from Admin)
+# =====================
+
+@app.post("/admin/test/reset-user-session")
+def reset_user_session_from_admin(request: Request, db: Session = Depends(get_db)):
+    response = RedirectResponse(url="/admin/", status_code=303)
+    try:
+        security.clear_user_session(response, request, db)
+    except Exception:
+        pass
+    return response
+
+
+@app.post("/admin/test/reset-all-cookies")
+def reset_all_cookies_from_admin(request: Request, db: Session = Depends(get_db)):
+    response = RedirectResponse(url="/admin/", status_code=303)
+    try:
+        security.clear_user_session(response, request, db)
+    except Exception:
+        pass
+    try:
+        security.clear_admin_session(response)
+    except Exception:
+        pass
+    return response
+
+
 # ===================
 # Minimal inventory API
 # ===================

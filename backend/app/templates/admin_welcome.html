@@ -66,11 +66,24 @@
           <a class="button" href="/admin/orders">Vai agli ordini</a>
           <a class="button" href="/admin/inventory">Inventario</a>
         </div>
+        <div style="margin-top:1rem; display:flex; gap:0.5rem; justify-content:center; flex-wrap:wrap;">
+          <form method="post" action="/admin/test/reset-user-session">
+            <button class="button" type="submit" style="background:linear-gradient(135deg,#607d8b,#455a64)">Reset cookie cliente</button>
+          </form>
+          <form method="post" action="/admin/test/reset-all-cookies" onsubmit="return confirm('Questo ti disconnetterà anche come admin. Procedere?')">
+            <button class="button" type="submit" style="background:linear-gradient(135deg,#b71c1c,#7f0000)">Reset tutti i cookie</button>
+          </form>
+        </div>
       {% else %}
         <p>Benvenuto nell'area riservata allo staff.</p>
         <p class="muted">Per gestire gli ordini accedi con le tue credenziali.</p>
         <div class="actions">
           <a class="button" href="/admin/login">Accedi</a>
+        </div>
+        <div style="margin-top:1rem; display:flex; gap:0.5rem; justify-content:center; flex-wrap:wrap;">
+          <form method="post" action="/admin/test/reset-user-session">
+            <button class="button" type="submit" style="background:linear-gradient(135deg,#607d8b,#455a64)">Reset cookie cliente</button>
+          </form>
         </div>
       {% endif %}
     </div>
