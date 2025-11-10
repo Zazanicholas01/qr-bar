@@ -233,8 +233,9 @@ def password_reset_start(payload: EmailActionStart, request: Request, db: Sessio
     subject = "Reset password"
     body = f"Per reimpostare la password, clicca: {link}\nSe non hai richiesto tu, ignora questa email."
     sent = send_email(user.email, subject, body)
-    debug = os.environ.get("APP_ENV", "dev") != "prod"
-    return {"ok": True, **({"debug_token": raw} if debug and not sent else {})}
+    if not sent or os.environ.get("EMAIL_DEBUG_LINKS", "false").lower() == "true":
+        return {"ok": True, "link": link, "debug_token": raw}
+    return {"ok": True}
 
 
 @router.post("/password/reset/confirm")
@@ -278,8 +279,9 @@ def email_verify_start(payload: EmailActionStart, request: Request, db: Session 
     subject = "Verifica email"
     body = f"Conferma il tuo indirizzo email cliccando: {link}"
     sent = send_email(user.email, subject, body)
-    debug = os.environ.get("APP_ENV", "dev") != "prod"
-    return {"ok": True, **({"debug_token": raw} if debug and not sent else {})}
+    if not sent or os.environ.get("EMAIL_DEBUG_LINKS", "false").lower() == "true":
+        return {"ok": True, "link": link, "debug_token": raw}
+    return {"ok": True}
 
 
 @router.get("/email/verify/confirm")

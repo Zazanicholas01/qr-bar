@@ -25,6 +25,7 @@ function MenuPage() {
   const [infoFeedback, setInfoFeedback] = useState(null);
   const [userError, setUserError] = useState(null);
   const [authNotice, setAuthNotice] = useState(null);
+  const [authLink, setAuthLink] = useState("");
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -319,6 +320,7 @@ function MenuPage() {
     try {
       const res = await startPasswordReset(loginEmail.trim());
       setAuthNotice("Se l'email esiste, riceverai un link per reimpostare la password.");
+      if (res && res.link) setAuthLink(res.link);
     } catch (err) {
       setAuthNotice("Impossibile inviare l'email di reset al momento.");
     }
@@ -327,8 +329,9 @@ function MenuPage() {
   const handleSendVerifyEmail = async () => {
     if (!userInfo.email) return;
     try {
-      await startEmailVerification(userInfo.email);
+      const res = await startEmailVerification(userInfo.email);
       setAuthNotice("Email di verifica inviata. Controlla la tua casella di posta.");
+      if (res && res.link) setAuthLink(res.link);
     } catch (err) {
       setAuthNotice("Impossibile inviare l'email di verifica.");
     }
@@ -954,7 +957,15 @@ function MenuPage() {
               }}>Crea account</button>
             </form>
             {authNotice && (
-              <div style={{ marginTop: 8, fontSize: 13, color: "#444" }}>{authNotice}</div>
+              <div style={{ marginTop: 8, fontSize: 13, color: "#444" }}>
+                {authNotice}
+                {authLink && (
+                  <>
+                    {" "}
+                    <a href={authLink} style={{ textDecoration: "underline" }} target="_blank" rel="noreferrer">Apri link</a>
+                  </>
+                )}
+              </div>
             )}
             <button
               type="button"

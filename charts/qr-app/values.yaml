@@ -60,6 +60,9 @@ env:
       value: "86400"
     - name: PASSWORD_RESET_TTL
       value: "3600"
+    # Show email/reset links in API responses when SMTP is not configured
+    - name: EMAIL_DEBUG_LINKS
+      value: "true"
 
 ingress:
   enabled: true

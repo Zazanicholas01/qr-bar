@@ -19,10 +19,30 @@ const API_BASE = `${API_PROTOCOL}//${API_HOST}${portSegment}/api`;
 
 async function handleResponse(response) {
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `Request failed with status ${response.status}`);
+    let msg = `Request failed with status ${response.status}`;
+    const ct = response.headers.get("content-type") || "";
+    try {
+      if (ct.includes("application/json")) {
+        const data = await response.json();
+        if (data && typeof data.detail === "string") msg = data.detail;
+        else if (typeof data === "string") msg = data;
+      } else {
+        const text = await response.text();
+        if (text) msg = text;
+      }
+    } catch (_) {
+      // ignore parse errors
+    }
+    // Friendly defaults for common auth errors
+    if (response.status === 401) {
+      msg = msg && msg !== String(response.status) ? msg : "Credenziali non valide";
+    }
+    throw new Error(msg);
   }
-  return response.json();
+  // Try JSON, otherwise text
+  const ct = response.headers.get("content-type") || "";
+  if (ct.includes("application/json")) return response.json();
+  return response.text();
 }
 
 export async function submitOrder({ tableId, items, userId }) {
