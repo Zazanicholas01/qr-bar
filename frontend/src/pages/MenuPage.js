@@ -229,10 +229,12 @@ function MenuPage() {
           cancel_on_tap_outside: true,
           context: "signin",
         });
+        const containerWidth = googleBtnRef.current.offsetWidth || 320;
+        const bw = Math.min(320, Math.max(200, containerWidth));
         window.google.accounts.id.renderButton(googleBtnRef.current, {
           theme: "outline",
           size: "large",
-          width: 320,
+          width: bw,
           type: "standard",
           shape: "pill",
           text: "signin_with",
@@ -898,6 +900,8 @@ function MenuPage() {
             width: "min(420px, 92vw)",
             boxShadow: "0 16px 36px rgba(0,0,0,0.2)",
             border: "1px solid rgba(0,0,0,0.08)",
+            boxSizing: "border-box",
+            overflow: "hidden",
           }}>
             <h2 style={{ margin: 0 }}>Benvenuto</h2>
             <p style={{ marginTop: "0.5rem", opacity: 0.9 }}>
@@ -905,7 +909,7 @@ function MenuPage() {
             </p>
             {googleClientId && (
               <div style={{ margin: "0.75rem 0" }}>
-                <div ref={googleBtnRef} style={{ display: "flex", justifyContent: "center" }} />
+                <div ref={googleBtnRef} style={{ display: "flex", justifyContent: "center", width: "100%" }} />
               </div>
             )}
             {userError && (
@@ -926,8 +930,8 @@ function MenuPage() {
             </div>
             <h3 style={{ margin: "0 0 0.5rem" }}>Accedi</h3>
             <form onSubmit={handleLoginSubmit} style={{ display: "grid", gap: 8, marginBottom: 12 }}>
-              <input type="email" placeholder="Email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required style={{ padding: "0.55rem 0.6rem", borderRadius: 8, border: "1px solid rgba(0,0,0,0.15)" }} />
-              <input type="password" placeholder="Password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required style={{ padding: "0.55rem 0.6rem", borderRadius: 8, border: "1px solid rgba(0,0,0,0.15)" }} />
+              <input type="email" placeholder="Email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required style={{ width: "100%", boxSizing: "border-box", padding: "0.55rem 0.6rem", borderRadius: 8, border: "1px solid rgba(0,0,0,0.15)" }} />
+              <input type="password" placeholder="Password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required style={{ width: "100%", boxSizing: "border-box", padding: "0.55rem 0.6rem", borderRadius: 8, border: "1px solid rgba(0,0,0,0.15)" }} />
               <button type="submit" disabled={isAuthenticating} style={{
                 width: "100%", padding: "0.6rem 0.9rem", borderRadius: 999, border: "none",
                 background: "#3e2723", color: "#fff", fontWeight: 700, cursor: "pointer"
@@ -938,12 +942,12 @@ function MenuPage() {
             </form>
             <h3 style={{ margin: "0.5rem 0 0.5rem" }}>Registrati</h3>
             <form onSubmit={handleRegisterSubmit} style={{ display: "grid", gap: 8, marginBottom: 12 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                <input type="text" placeholder="Nome (opzionale)" value={regName} onChange={e => setRegName(e.target.value)} style={{ padding: "0.55rem 0.6rem", borderRadius: 8, border: "1px solid rgba(0,0,0,0.15)" }} />
-                <input type="text" placeholder="Cognome (opzionale)" value={regSurname} onChange={e => setRegSurname(e.target.value)} style={{ padding: "0.55rem 0.6rem", borderRadius: 8, border: "1px solid rgba(0,0,0,0.15)" }} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, minWidth: 0 }}>
+                <input type="text" placeholder="Nome (opzionale)" value={regName} onChange={e => setRegName(e.target.value)} style={{ width: "100%", boxSizing: "border-box", padding: "0.55rem 0.6rem", borderRadius: 8, border: "1px solid rgba(0,0,0,0.15)" }} />
+                <input type="text" placeholder="Cognome (opzionale)" value={regSurname} onChange={e => setRegSurname(e.target.value)} style={{ width: "100%", boxSizing: "border-box", padding: "0.55rem 0.6rem", borderRadius: 8, border: "1px solid rgba(0,0,0,0.15)" }} />
               </div>
-              <input type="email" placeholder="Email" value={regEmail} onChange={e => setRegEmail(e.target.value)} required style={{ padding: "0.55rem 0.6rem", borderRadius: 8, border: "1px solid rgba(0,0,0,0.15)" }} />
-              <input type="password" placeholder="Password (min 8)" value={regPassword} onChange={e => setRegPassword(e.target.value)} required minLength={8} style={{ padding: "0.55rem 0.6rem", borderRadius: 8, border: "1px solid rgba(0,0,0,0.15)" }} />
+              <input type="email" placeholder="Email" value={regEmail} onChange={e => setRegEmail(e.target.value)} required style={{ width: "100%", boxSizing: "border-box", padding: "0.55rem 0.6rem", borderRadius: 8, border: "1px solid rgba(0,0,0,0.15)" }} />
+              <input type="password" placeholder="Password (min 8)" value={regPassword} onChange={e => setRegPassword(e.target.value)} required minLength={8} style={{ width: "100%", boxSizing: "border-box", padding: "0.55rem 0.6rem", borderRadius: 8, border: "1px solid rgba(0,0,0,0.15)" }} />
               <button type="submit" disabled={isAuthenticating} style={{
                 width: "100%", padding: "0.6rem 0.9rem", borderRadius: 999, border: "none",
                 background: "#4e342e", color: "#fff", fontWeight: 700, cursor: "pointer"
