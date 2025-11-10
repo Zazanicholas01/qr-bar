@@ -926,7 +926,7 @@ def admin_inventory_adjust(
         unit=unit or item.unit,
         reason=reason,
         ref_type="admin-adjust",
-        ref_id=0,
+        ref_id=None,
         created_by="admin",
     )
     db.commit()
@@ -977,7 +977,7 @@ def adjust_inventory(payload: InventoryAdjust, db: Session = Depends(get_db), ad
         unit=payload.unit,
         reason=payload.reason,
         ref_type="adjust",
-        ref_id=0,
+        ref_id=None,
         created_by="api",
     )
     db.commit()

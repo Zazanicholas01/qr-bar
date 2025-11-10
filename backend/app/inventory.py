@@ -43,17 +43,18 @@ def _record_movement(
     location_id: int | None = None,
     created_by: str | None = None,
 ) -> None:
-    # Idempotency check for order-related movements
-    exists = db.query(models.StockMovement).filter(
-        and_(
-            models.StockMovement.item_id == item_id,
-            models.StockMovement.reason == reason,
-            models.StockMovement.ref_type == ref_type,
-            models.StockMovement.ref_id == ref_id,
-        )
-    ).first()
-    if exists:
-        return
+    # Idempotency only applies when we have a concrete reference identifier (e.g. orders)
+    if ref_type is not None and ref_id is not None:
+        exists = db.query(models.StockMovement).filter(
+            and_(
+                models.StockMovement.item_id == item_id,
+                models.StockMovement.reason == reason,
+                models.StockMovement.ref_type == ref_type,
+                models.StockMovement.ref_id == ref_id,
+            )
+        ).first()
+        if exists:
+            return
 
     mv = models.StockMovement(
         item_id=item_id,
