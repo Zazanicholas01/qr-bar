@@ -23,6 +23,7 @@ class UserRead(BaseModel):
     id: int
     name: str | None = None
     email: str | None = None
+    email_verified_at: datetime | None = None
     phone: str | None = None
     age: int | None = None
     created_at: datetime

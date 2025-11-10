@@ -35,6 +35,8 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(120), nullable=False)
     email = Column(String(200), nullable=True)
+    password_hash = Column(String(255), nullable=True)
+    email_verified_at = Column(DateTime, nullable=True)
     phone = Column(String(30), nullable=True)
     age = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -178,3 +180,32 @@ class StockLevel(Base):
     location_id = Column(Integer, ForeignKey("inventory_locations.id", ondelete="CASCADE"), primary_key=True, nullable=False)
     qty_on_hand_cached = Column(Numeric(12, 3), nullable=False, default=0)
     updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+# =====================
+# Auth/session models
+# =====================
+
+class AuthSession(Base):
+    __tablename__ = "auth_sessions"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    token_hash = Column(String(128), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    revoked_at = Column(DateTime, nullable=True)
+    user_agent = Column(String(255), nullable=True)
+    ip = Column(String(64), nullable=True)
+
+
+class EmailToken(Base):
+    __tablename__ = "email_tokens"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    purpose = Column(String(16), nullable=False)  # verify | reset
+    token_hash = Column(String(128), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    consumed_at = Column(DateTime, nullable=True)

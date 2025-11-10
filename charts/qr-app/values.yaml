@@ -30,7 +30,36 @@ env:
       value: "true"
     # Force QR codes to use the LAN IP over HTTPS (testing)
     - name: FRONTEND_PUBLIC_URL
-      value: "https://10.196.142.223"
+      value: "https://192.168.1.36"
+    # Google OIDC client ID for customer sign-in (frontend fetches via /api/auth/config)
+    - name: GOOGLE_CLIENT_ID
+      value: "YOUR_GOOGLE_OAUTH_CLIENT_ID"
+    # Customer session cookie config
+    - name: USER_SESSION_COOKIE
+      value: "user_session"
+    - name: USER_SESSION_TTL
+      value: "604800" # 7 days
+    - name: USER_COOKIE_SECURE
+      value: "true"
+    # App base URL used in emails to build links
+    - name: APP_BASE_URL
+      value: "https://orders.local"
+    # SMTP configuration (set valid values in real environments)
+    - name: SMTP_HOST
+      value: ""
+    - name: SMTP_PORT
+      value: "587"
+    - name: SMTP_USERNAME
+      value: ""
+    - name: SMTP_PASSWORD
+      value: ""
+    - name: SMTP_FROM
+      value: "no-reply@orders.local"
+    # Email token TTLs (seconds)
+    - name: EMAIL_VERIFY_TTL
+      value: "86400"
+    - name: PASSWORD_RESET_TTL
+      value: "3600"
 
 ingress:
   enabled: true

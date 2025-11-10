@@ -1,16 +1,17 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
+from app.security import create_user_session
 
 router = APIRouter()
 
 
 @router.post("/auto", response_model=schemas.UserRead, status_code=status.HTTP_201_CREATED)
-async def auto_login(table_id: str | None = None, db: Session = Depends(get_db)):
+async def auto_login(table_id: str | None = None, response: Response = None, request: Request = None, db: Session = Depends(get_db)):
     """Create a lightweight user row when a guest scans the QR code."""
     try:
         guest_label = table_id or "guest"
@@ -36,6 +37,13 @@ async def auto_login(table_id: str | None = None, db: Session = Depends(get_db))
         db.rollback()
         raise HTTPException(status_code=500, detail="Unable to create user") from exc
 
+    # Set a customer session cookie as well (opaque, DB-backed)
+    if response is not None:
+        try:
+            create_user_session(response, db, user, request)
+        except Exception:
+            # don't fail guest creation if cookie cannot be set
+            pass
     return user
 
 

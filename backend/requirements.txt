@@ -13,3 +13,5 @@ python-multipart
 passlib
 itsdangerous
 email-validator
+google-auth
+requests

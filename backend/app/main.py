@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from app.routers import menu, orders, simulator, tables, users
+from app.routers import auth as auth_router
 from app.routers import ai
 from app.database import Base, get_db, get_engine
 from sqlalchemy import text
@@ -47,6 +48,7 @@ app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(simulator.router, prefix="/api/simulator", tags=["Simulator"])
 app.include_router(ai.router, prefix="/api/ai", tags=["AI"])
+app.include_router(auth_router.router, prefix="/api/auth", tags=["Auth"])
 
 PAYMENT_METHODS = [
     "cash",
@@ -97,6 +99,16 @@ def _ensure_schema() -> None:
         )
         connection.execute(
             text("ALTER TABLE users ADD COLUMN IF NOT EXISTS age INTEGER;")
+        )
+        connection.execute(
+            text("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);")
+        )
+        connection.execute(
+            text("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMP;")
+        )
+        # Unique email constraint (case-insensitive) via index
+        connection.execute(
+            text("CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email ON users (lower(email)) WHERE email IS NOT NULL;")
         )
         if _column_exists(connection, "users", "table_id"):
             connection.execute(

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useCart } from "../context/CartContext";
-import { autoLogin, submitOrder, updateUser, searchMenu as searchMenuApi, fetchItemTags } from "../api";
+import { autoLogin, submitOrder, updateUser, searchMenu as searchMenuApi, fetchItemTags, signInWithGoogle, registerUser, loginUser, fetchAuthConfig, fetchSession, startPasswordReset, startEmailVerification } from "../api";
 
 function MenuPage() {
   const { tableId } = useParams();
@@ -20,9 +20,11 @@ function MenuPage() {
   const [orderFeedback, setOrderFeedback] = useState(null);
   const [userId, setUserId] = useState(null);
   const [userInfo, setUserInfo] = useState({ name: "", email: "", phone: "", age: "" });
+  const [userVerified, setUserVerified] = useState(false);
   const [isSavingInfo, setIsSavingInfo] = useState(false);
   const [infoFeedback, setInfoFeedback] = useState(null);
   const [userError, setUserError] = useState(null);
+  const [authNotice, setAuthNotice] = useState(null);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -34,6 +36,15 @@ function MenuPage() {
   const [flipped, setFlipped] = useState(() => new Set());
   // Simple gate to prompt the user to start a guest session
   const [showAuthGate, setShowAuthGate] = useState(true);
+  const [googleClientId, setGoogleClientId] = useState(process.env.REACT_APP_GOOGLE_CLIENT_ID || "");
+  const [googleReady, setGoogleReady] = useState(false);
+  const googleBtnRef = React.useRef(null);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [regName, setRegName] = useState("");
+  const [regSurname, setRegSurname] = useState("");
 
   const isFlipped = (id) => flipped.has(id);
   const toggleFlip = (id) => {
@@ -125,8 +136,37 @@ function MenuPage() {
         return;
       }
     }
-    setShowAuthGate(true);
+    // Try to reuse server session cookie
+    fetchSession()
+      .then(sessUser => {
+        if (sessUser && sessUser.id) {
+          setUserId(sessUser.id);
+          setUserInfo({
+            name: sessUser.name || "",
+            email: sessUser.email || "",
+            phone: sessUser.phone || "",
+            age: sessUser.age != null ? String(sessUser.age) : "",
+          });
+          setUserVerified(Boolean(sessUser.email_verified_at));
+          setShowAuthGate(false);
+        } else {
+          setShowAuthGate(true);
+        }
+      })
+      .catch(() => setShowAuthGate(true));
   }, [tableId]);
+
+  // Fetch runtime auth configuration if env not present
+  useEffect(() => {
+    if (googleClientId) return;
+    fetchAuthConfig()
+      .then(cfg => {
+        if (cfg && typeof cfg.google_client_id === 'string') {
+          setGoogleClientId(cfg.google_client_id);
+        }
+      })
+      .catch(() => {});
+  }, [googleClientId]);
 
   // Explicit guest session creation
   const handleContinueAsGuest = async () => {
@@ -142,12 +182,153 @@ function MenuPage() {
         phone: user.phone || "",
         age: user.age != null ? String(user.age) : "",
       });
+      setUserVerified(Boolean(user.email_verified_at));
       sessionStorage.setItem(`guest_user_id:${tableId}`, String(user.id));
       setShowAuthGate(false);
     } catch (err) {
       setUserError(err.message || "Impossibile avviare la sessione utente.");
     } finally {
       setIsAuthenticating(false);
+    }
+  };
+
+  // Google Identity Services loader + button rendering
+  useEffect(() => {
+    if (!showAuthGate) return; // only render on gate
+    if (!googleClientId) return; // no client id configured
+
+    const renderButton = () => {
+      try {
+        if (!window.google || !window.google.accounts || !googleBtnRef.current) return;
+        window.google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: async (resp) => {
+            const cred = resp && resp.credential;
+            if (!cred) return;
+            setIsAuthenticating(true);
+            setUserError(null);
+            try {
+              const user = await signInWithGoogle(cred, tableId);
+              setUserId(user.id);
+              setUserInfo({
+                name: user.name || "",
+                email: user.email || "",
+                phone: user.phone || "",
+                age: user.age != null ? String(user.age) : "",
+              });
+              setUserVerified(Boolean(user.email_verified_at));
+              sessionStorage.setItem(`guest_user_id:${tableId}`, String(user.id));
+              setShowAuthGate(false);
+            } catch (err) {
+              setUserError(err.message || "Accesso Google non riuscito.");
+            } finally {
+              setIsAuthenticating(false);
+            }
+          },
+          auto_select: false,
+          cancel_on_tap_outside: true,
+          context: "signin",
+        });
+        window.google.accounts.id.renderButton(googleBtnRef.current, {
+          theme: "outline",
+          size: "large",
+          width: 320,
+          type: "standard",
+          shape: "pill",
+          text: "signin_with",
+          logo_alignment: "left",
+        });
+        setGoogleReady(true);
+      } catch (_) {
+        // ignore render failures
+      }
+    };
+
+    if (window.google && window.google.accounts && window.google.accounts.id) {
+      renderButton();
+      return;
+    }
+
+    const scriptId = "google-identity-services";
+    if (document.getElementById(scriptId)) return; // already loading/loaded
+    const script = document.createElement("script");
+    script.id = scriptId;
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = renderButton;
+    document.head.appendChild(script);
+  }, [showAuthGate, googleClientId, tableId]);
+
+  const handleLoginSubmit = async (e) => {
+    e.preventDefault();
+    if (isAuthenticating) return;
+    setIsAuthenticating(true);
+    setUserError(null);
+    try {
+      const user = await loginUser({ email: loginEmail.trim(), password: loginPassword, tableId });
+      setUserId(user.id);
+      setUserInfo({
+        name: user.name || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        age: user.age != null ? String(user.age) : "",
+      });
+      setUserVerified(Boolean(user.email_verified_at));
+      sessionStorage.setItem(`guest_user_id:${tableId}`, String(user.id));
+      setShowAuthGate(false);
+    } catch (err) {
+      setUserError(err.message || "Accesso non riuscito.");
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  const handleRegisterSubmit = async (e) => {
+    e.preventDefault();
+    if (isAuthenticating) return;
+    setIsAuthenticating(true);
+    setUserError(null);
+    try {
+      const user = await registerUser({ email: regEmail.trim(), password: regPassword, name: regName.trim() || null, surname: regSurname.trim() || null, tableId });
+      setUserId(user.id);
+      setUserInfo({
+        name: user.name || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        age: user.age != null ? String(user.age) : "",
+      });
+      setUserVerified(Boolean(user.email_verified_at));
+      sessionStorage.setItem(`guest_user_id:${tableId}`, String(user.id));
+      setShowAuthGate(false);
+    } catch (err) {
+      setUserError(err.message || "Registrazione non riuscita.");
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    if (!loginEmail.trim()) {
+      setAuthNotice("Inserisci la tua email sopra e riprova.");
+      return;
+    }
+    try {
+      const res = await startPasswordReset(loginEmail.trim());
+      setAuthNotice("Se l'email esiste, riceverai un link per reimpostare la password.");
+    } catch (err) {
+      setAuthNotice("Impossibile inviare l'email di reset al momento.");
+    }
+  };
+
+  const handleSendVerifyEmail = async () => {
+    if (!userInfo.email) return;
+    try {
+      await startEmailVerification(userInfo.email);
+      setAuthNotice("Email di verifica inviata. Controlla la tua casella di posta.");
+    } catch (err) {
+      setAuthNotice("Impossibile inviare l'email di verifica.");
     }
   };
 
@@ -391,6 +572,12 @@ function MenuPage() {
           ))}
         </div>
       </header>
+      {userId && userInfo.email && !userVerified && (
+        <div className="status-card" style={{ margin: "8px 16px", background: "#fff8e1", border: "1px solid #ffecb3" }}>
+          <span style={{ marginRight: 8 }}>Per favore verifica la tua email ({userInfo.email})</span>
+          <button type="button" onClick={handleSendVerifyEmail} style={{ padding: "0.35rem 0.6rem", borderRadius: 999, border: "none", background: "#3e2723", color: "#fff", cursor: "pointer" }}>Invia verifica</button>
+        </div>
+      )}
       <section className="main-content">
         {searchResults.filter(resultMatchesFilters).length > 0 && (
           <section className="menu-category">
@@ -714,8 +901,13 @@ function MenuPage() {
           }}>
             <h2 style={{ margin: 0 }}>Benvenuto</h2>
             <p style={{ marginTop: "0.5rem", opacity: 0.9 }}>
-              Per ordinare, continua come ospite. A breve aggiungeremo anche accesso con passkey o account.
+              Accedi per personalizzare l&#39;esperienza oppure continua come ospite.
             </p>
+            {googleClientId && (
+              <div style={{ margin: "0.75rem 0" }}>
+                <div ref={googleBtnRef} style={{ display: "flex", justifyContent: "center" }} />
+              </div>
+            )}
             {userError && (
               <div style={{
                 margin: "0.5rem 0 0.75rem",
@@ -726,6 +918,39 @@ function MenuPage() {
               }}>
                 {userError}
               </div>
+            )}
+            <div style={{ margin: "0.5rem 0 0.75rem", display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ height: 1, background: "#e5e5e5", flex: 1 }} />
+              <div style={{ fontSize: 12, color: "#777" }}>oppure</div>
+              <div style={{ height: 1, background: "#e5e5e5", flex: 1 }} />
+            </div>
+            <h3 style={{ margin: "0 0 0.5rem" }}>Accedi</h3>
+            <form onSubmit={handleLoginSubmit} style={{ display: "grid", gap: 8, marginBottom: 12 }}>
+              <input type="email" placeholder="Email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required style={{ padding: "0.55rem 0.6rem", borderRadius: 8, border: "1px solid rgba(0,0,0,0.15)" }} />
+              <input type="password" placeholder="Password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required style={{ padding: "0.55rem 0.6rem", borderRadius: 8, border: "1px solid rgba(0,0,0,0.15)" }} />
+              <button type="submit" disabled={isAuthenticating} style={{
+                width: "100%", padding: "0.6rem 0.9rem", borderRadius: 999, border: "none",
+                background: "#3e2723", color: "#fff", fontWeight: 700, cursor: "pointer"
+              }}>Entra</button>
+              <div style={{ textAlign: "right" }}>
+                <a href="#" onClick={handleForgotPassword} style={{ fontSize: 12, color: "#555", textDecoration: "underline" }}>Password dimenticata?</a>
+              </div>
+            </form>
+            <h3 style={{ margin: "0.5rem 0 0.5rem" }}>Registrati</h3>
+            <form onSubmit={handleRegisterSubmit} style={{ display: "grid", gap: 8, marginBottom: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <input type="text" placeholder="Nome (opzionale)" value={regName} onChange={e => setRegName(e.target.value)} style={{ padding: "0.55rem 0.6rem", borderRadius: 8, border: "1px solid rgba(0,0,0,0.15)" }} />
+                <input type="text" placeholder="Cognome (opzionale)" value={regSurname} onChange={e => setRegSurname(e.target.value)} style={{ padding: "0.55rem 0.6rem", borderRadius: 8, border: "1px solid rgba(0,0,0,0.15)" }} />
+              </div>
+              <input type="email" placeholder="Email" value={regEmail} onChange={e => setRegEmail(e.target.value)} required style={{ padding: "0.55rem 0.6rem", borderRadius: 8, border: "1px solid rgba(0,0,0,0.15)" }} />
+              <input type="password" placeholder="Password (min 8)" value={regPassword} onChange={e => setRegPassword(e.target.value)} required minLength={8} style={{ padding: "0.55rem 0.6rem", borderRadius: 8, border: "1px solid rgba(0,0,0,0.15)" }} />
+              <button type="submit" disabled={isAuthenticating} style={{
+                width: "100%", padding: "0.6rem 0.9rem", borderRadius: 999, border: "none",
+                background: "#4e342e", color: "#fff", fontWeight: 700, cursor: "pointer"
+              }}>Crea account</button>
+            </form>
+            {authNotice && (
+              <div style={{ marginTop: 8, fontSize: 13, color: "#444" }}>{authNotice}</div>
             )}
             <button
               type="button"
@@ -744,6 +969,11 @@ function MenuPage() {
             >
               {isAuthenticating ? "Preparazione..." : "Continua come ospite"}
             </button>
+            {!googleClientId && (
+              <p style={{ marginTop: "0.65rem", fontSize: "0.9rem", opacity: 0.8 }}>
+                Suggerimento: configura REACT_APP_GOOGLE_CLIENT_ID per abilitare "Sign in with Google".
+              </p>
+            )}
           </div>
         </div>
       )}

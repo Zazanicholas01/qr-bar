@@ -79,3 +79,61 @@ export async function fetchItemTags() {
   const response = await fetch(`${API_BASE}/ai/tags`);
   return handleResponse(response);
 }
+
+export async function signInWithGoogle(credential, tableId) {
+  const response = await fetch(`${API_BASE}/auth/google`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ credential, table_id: tableId ?? null }),
+  });
+  return handleResponse(response);
+}
+
+export async function registerUser({ email, password, name, surname, tableId }) {
+  const response = await fetch(`${API_BASE}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password, name: name ?? null, surname: surname ?? null, table_id: tableId ?? null }),
+  });
+  return handleResponse(response);
+}
+
+export async function loginUser({ email, password, tableId }) {
+  const response = await fetch(`${API_BASE}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password, table_id: tableId ?? null }),
+  });
+  return handleResponse(response);
+}
+
+export async function fetchAuthConfig() {
+  const response = await fetch(`${API_BASE}/auth/config`);
+  return handleResponse(response);
+}
+
+export async function fetchSession() {
+  const response = await fetch(`${API_BASE}/auth/session`);
+  if (response.status === 204) return null;
+  // When not logged in, FastAPI returns null JSON
+  if (response.status === 200) return response.json();
+  return null;
+}
+
+export async function startPasswordReset(email) {
+  const response = await fetch(`${API_BASE}/auth/password/reset/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  return handleResponse(response);
+}
+
+export async function startEmailVerification(email) {
+  const response = await fetch(`${API_BASE}/auth/email/verify/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  return handleResponse(response);
+}
