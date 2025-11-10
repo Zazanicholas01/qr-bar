@@ -10,11 +10,14 @@ sudo microk8s status --wait-ready
 
 helm upgrade --install qr-app charts/qr-app -n qr --create-namespace --set fullnameOverride=qr-app
 
-helm upgrade --install qr-app charts/qr-app -n qr -f charts/qr-app/values.yaml \ 
---set-string image.backend=ghcr.io/zazanicholas01/qr-backend:sha-acf26bc \
---set-string image.frontend=ghcr.io/zazanicholas01/qr-frontend:sha-acf26bc \
+helm upgrade --install qr-app charts/qr-app -n qr -f charts/qr-app/values.yaml \
+--set-string image.backend=ghcr.io/zazanicholas01/qr-backend:sha-8740771 \
+--set-string image.frontend=ghcr.io/zazanicholas01/qr-frontend:sha-8740771 \
 --set fullnameOverride=qr-app
 
+kubectl -n qr rollout restart deployment/qr-app-backend && kubectl -n qr rollout restart deployment/qr-app-frontend
+
+./scripts/deploy_latest_inventory.sh --> Bash script
 
 ############# USEFUL COMMANDS ########################################################
 
