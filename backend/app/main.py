@@ -515,9 +515,10 @@ def _bootstrap_admin() -> None:
 def admin_welcome(request: Request, db: Session = Depends(get_db)):
     """Simple welcome page for staff: link to login or orders if authenticated."""
     admin = security.get_admin_from_request(request, db)
+    reset_status = request.query_params.get("reset")
     return templates.TemplateResponse(
         "admin_welcome.html",
-        {"request": request, "admin": admin},
+        {"request": request, "admin": admin, "reset_status": reset_status},
     )
 
 
@@ -983,6 +984,38 @@ def revoke_all_user_sessions(request: Request, db: Session = Depends(get_db)):
     except Exception:
         db.rollback()
     return response
+
+
+@app.post("/admin/test/reset-demo-data")
+def reset_demo_data(request: Request, db: Session = Depends(get_db)):
+    admin = security.get_admin_from_request(request, db)
+    if not admin:
+        return RedirectResponse(url="/admin/login", status_code=303)
+
+    engine = get_engine()
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "TRUNCATE TABLE order_items, transactions, orders, email_tokens, auth_sessions, users "
+                "RESTART IDENTITY CASCADE"
+            )
+        )
+        connection.execute(
+            text("DELETE FROM stock_movements WHERE COALESCE(ref_type, '') <> 'seed'")
+        )
+        connection.execute(
+            text(
+                "UPDATE stock_levels AS sl "
+                "SET qty_on_hand_cached = COALESCE(( "
+                "  SELECT SUM(qty_delta) "
+                "  FROM stock_movements sm "
+                "  WHERE sm.item_id = sl.item_id AND sm.location_id = sl.location_id AND sm.ref_type = 'seed' "
+                "), 0), "
+                "updated_at = NOW()"
+            )
+        )
+
+    return RedirectResponse(url="/admin/?reset=success", status_code=303)
 
 
 # ===================

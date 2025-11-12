@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Authentication System – Visual Guide</title>
+  <style>
+    :root{
+      --bg:#0b0f14;--card:#121823;--ink:#e8eef6;--muted:#a8b3c7;--accent:#6ab7ff;--accent2:#7bf1b4;--danger:#ff7a7a;--warn:#ffc565;
+      --code:#0f172a;--ok:#9eff9e;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font:16px/1.6 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;
+      background:linear-gradient(180deg,#0b0f14 0%,#0e141d 100%); color:var(--ink);
+    }
+    .wrap{max-width:1200px;margin:40px auto;padding:0 20px 120px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px}
+    h1{font-size:28px;margin:0}
+    .meta{color:var(--muted);font-size:14px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+    .card{background:var(--card);border:1px solid #1e2a3a;border-radius:16px;padding:18px;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+    .card h2{margin:0 0 8px;font-size:20px}
+    .sub{color:var(--muted);margin:-4px 0 12px;font-size:13px}
+    table{width:100%;border-collapse:collapse;border-spacing:0}
+    th,td{padding:10px 12px;border-bottom:1px solid #223044;vertical-align:top}
+    th{color:#cfe4ff;text-align:left;background:#121a27;position:sticky;top:0}
+    code,kbd{background:var(--code);border:1px solid #1c2434;border-radius:6px;padding:.1em .35em;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    .tag{display:inline-block;padding:.2em .5em;border-radius:999px;border:1px solid #2c3c54;color:#cfe4ff;background:#0c1420;font-size:12px}
+    .legend{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+    .legend .chip{padding:.25em .55em;border-radius:999px;font-size:12px;border:1px solid #2c3c54}
+    details{border:1px solid #233247;border-radius:14px;padding:12px 14px;background:#111926}
+    details+details{margin-top:10px}
+    summary{cursor:pointer;font-weight:600}
+    .flow{width:100%;overflow:auto;border:1px dashed #2a3b54;border-radius:12px;padding:8px;background:#0c131d}
+    .muted{color:var(--muted)}
+    .pill{display:inline-flex;align-items:center;gap:8px;border:1px solid #26364d;border-radius:999px;padding:6px 10px;background:#0c1420}
+    .ok{color:var(--ok)}
+    .warn{color:var(--warn)}
+    .danger{color:var(--danger)}
+    .footer{margin-top:18px;color:var(--muted);font-size:13px}
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media (max-width:780px){.two-col{grid-template-columns:1fr}}
+    .kbd{padding:0 6px;border-radius:6px;border:1px solid #27364f;background:#0e1726}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Authentication System – Visual Guide</h1>
+      <div class="meta">Static HTML · Tables + SVG flows</div>
+    </header>
+
+    <!-- SESSION TYPES -->
+    <section class="grid">
+      <div class="card">
+        <h2>Session Types</h2>
+        <div class="sub">Customer session is DB-backed; Admin session is a signed cookie only.</div>
+        <table>
+          <thead>
+            <tr><th>Type</th><th>Cookie</th><th>Storage</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Customer</td>
+              <td><code>USER_SESSION_COOKIE</code></td>
+              <td>
+                <div>Row in <code>Auth_Sessions</code> (Postgres)</div>
+                <div class="muted">Fields: <code>token_hash</code>, <code>expires_at</code>, <code>revoked_at</code>, <code>user_agent</code>, <code>ip</code></div>
+              </td>
+            </tr>
+            <tr>
+              <td>Admin</td>
+              <td><code>ADMIN_SESSION_COOKIE</code></td>
+              <td>Signed token stored in cookie only (no DB row)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>When Sessions Are Stored</h2>
+        <div class="two-col">
+          <div>
+            <h3 style="margin:8px 0">Customer</h3>
+            <ul>
+              <li>Guest Auto‑Login → <code>Auto_Login()</code></li>
+              <li>Registration → <code>Register_User()</code></li>
+              <li>Password Login → <code>Login_User()</code></li>
+              <li>Google Login → <code>Google_Sign_In()</code></li>
+            </ul>
+          </div>
+          <div>
+            <h3 style="margin:8px 0">Admin</h3>
+            <ul>
+              <li>No DB row. Cookie signed and set during <code>Login_Submit()</code> via <code>Set_admin_session()</code>.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="legend">
+          <span class="chip">DB‑backed = revocable</span>
+          <span class="chip">Signed cookie = verify on read</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- VARIABLES & HELPERS -->
+    <section class="grid" style="margin-top:16px">
+      <div class="card">
+        <h2>Variables & Helpers – Customer</h2>
+        <table>
+          <thead><tr><th>Item</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>USER_COOKIE</code> / <code>USER_COOKIE_SECURE</code> / <code>USER_SESSION_TTL</code></td><td>Cookie name, Secure flag, and TTL for session token.</td></tr>
+            <tr><td><code>Hash_token(raw)</code> → <code>token_hash</code></td><td>Hashes the raw token before persistence.</td></tr>
+            <tr>
+              <td><code>Create_user_session(response, db, user, request)</code></td>
+              <td>
+                Generates random token (<code>raw</code>) → <code>token_hash</code> → computes <code>expires_at</code> = now + TTL, captures <code>user_agent</code> and <code>ip</code>, inserts <code>AuthSession</code> row, sets cookie.
+              </td>
+            </tr>
+            <tr><td><code>Clear_user_session(response, request, db)</code></td><td>Revokes session row (if present) and deletes cookie.</td></tr>
+            <tr><td><code>Get_user_from_request(request, db)</code></td><td>Looks up session by <code>token_hash</code> from cookie; returns user or <em>None</em>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Variables & Helpers – Admin</h2>
+        <table>
+          <thead><tr><th>Item</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>SECRET_KEY</code> / <code>SESSION_TTL</code> / <code>COOKIE_NAME</code> / <code>COOKIE_SECURE</code></td><td>Signing secret, TTL, cookie name & flags.</td></tr>
+            <tr><td><code>URLSafeTimedSerializer</code></td><td><code>make_token(user_id)</code> and <code>decode_token(token)</code> for signed cookie.</td></tr>
+            <tr><td><code>Set_admin_session(response, user)</code></td><td>Create signed token and set cookie.</td></tr>
+            <tr><td><code>Clear_admin_session(response)</code></td><td>Delete admin cookie.</td></tr>
+            <tr><td><code>Get_admin_from_request(request, db)</code></td><td>Decode token, validate TTL & signature, fetch user.</td></tr>
+            <tr><td><code>Require_admin_API</code></td><td>Guard for protected endpoints.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- FLOWS -->
+    <section style="margin-top:16px" class="card">
+      <h2>Customer Flows</h2>
+
+      <details open>
+        <summary>Guest Auto‑Login (QR Scan)</summary>
+        <div class="sub">POST <code>/api/users/auto</code> → <code>Auto_Login()</code> → sets DB‑backed session + cookie</div>
+        <div class="flow">
+          <!-- Simple SVG flow -->
+          <svg width="960" height="220" viewBox="0 0 960 220" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="arrow" markerWidth="10" markerHeight="10" refX="10" refY="3" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L10,3 L0,6 Z" fill="#6ab7ff" />
+              </marker>
+              <style>
+                .box{fill:#0f1726;stroke:#2a3b54;stroke-width:1.2;rx:10;ry:10}
+                .lbl{fill:#e8eef6;font:600 12px/1.3 system-ui}
+                .sm{fill:#a8b3c7;font:12px system-ui}
+                .edge{stroke:#6ab7ff;stroke-width:1.6;marker-end:url(#arrow)}
+              </style>
+            </defs>
+            <rect class="box" x="20" y="24" width="180" height="52"/>
+            <text class="lbl" x="30" y="50">Client</text>
+            <text class="sm" x="30" y="68">POST /api/users/auto</text>
+
+            <rect class="box" x="240" y="24" width="200" height="52"/>
+            <text class="lbl" x="250" y="50">Auto_Login()</text>
+            <text class="sm" x="250" y="68">create User + Table?</text>
+
+            <rect class="box" x="480" y="24" width="210" height="52"/>
+            <text class="lbl" x="490" y="50">Create_user_session</text>
+            <text class="sm" x="490" y="68">raw → hash, TTL, UA, IP</text>
+
+            <rect class="box" x="730" y="24" width="210" height="52"/>
+            <text class="lbl" x="740" y="50">Persist</text>
+            <text class="sm" x="740" y="68">Auth_Sessions row</text>
+
+            <line class="edge" x1="200" y1="50" x2="240" y2="50"/>
+            <line class="edge" x1="440" y1="50" x2="480" y2="50"/>
+            <line class="edge" x1="690" y1="50" x2="730" y2="50"/>
+
+            <rect class="box" x="240" y="116" width="200" height="52"/>
+            <text class="lbl" x="250" y="142">Set Cookie</text>
+            <text class="sm" x="250" y="160">USER_COOKIE = raw</text>
+
+            <rect class="box" x="480" y="116" width="210" height="52"/>
+            <text class="lbl" x="490" y="142">Return</text>
+            <text class="sm" x="490" y="160">UserRead</text>
+
+            <line class="edge" x1="835" y1="76" x2="835" y2="116"/>
+            <line class="edge" x1="440" y1="142" x2="240" y2="142"/>
+            <line class="edge" x1="690" y1="142" x2="450" y2="142"/>
+          </svg>
+        </div>
+        <ul>
+          <li>Optional <code>table_id</code>, guest label, DB commit.</li>
+          <li>Storage: <code>Auth_Sessions</code> row with <code>token_hash</code> + cookie on client.</li>
+        </ul>
+      </details>
+
+      <details>
+        <summary>Registration</summary>
+        <div class="sub">POST <code>/api/auth/register</code> → <code>Register_User()</code></div>
+        <div class="flow">
+          <svg width="860" height="180" viewBox="0 0 860 180" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="arrow2" markerWidth="10" markerHeight="10" refX="10" refY="3" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L10,3 L0,6 Z" fill="#7bf1b4" />
+              </marker>
+              <style>
+                .box{fill:#0f1726;stroke:#2a3b54;stroke-width:1.2;rx:10;ry:10}
+                .lbl{fill:#e8eef6;font:600 12px system-ui}
+                .sm{fill:#a8b3c7;font:12px system-ui}
+                .edge{stroke:#7bf1b4;stroke-width:1.6;marker-end:url(#arrow2)}
+              </style>
+            </defs>
+            <rect class="box" x="20" y="24" width="210" height="52"/>
+            <text class="lbl" x="30" y="50">Register_User()</text>
+            <text class="sm" x="30" y="68">validate payload</text>
+
+            <rect class="box" x="260" y="24" width="200" height="52"/>
+            <text class="lbl" x="270" y="50">Hash_Password()</text>
+
+            <rect class="box" x="500" y="24" width="210" height="52"/>
+            <text class="lbl" x="510" y="50">Create_user_session</text>
+
+            <rect class="box" x="740" y="24" width="100" height="52"/>
+            <text class="lbl" x="750" y="50">Return</text>
+            <text class="sm" x="750" y="68">UserRead</text>
+
+            <line class="edge" x1="230" y1="50" x2="260" y2="50"/>
+            <line class="edge" x1="460" y1="50" x2="500" y2="50"/>
+            <line class="edge" x1="710" y1="50" x2="740" y2="50"/>
+          </svg>
+        </div>
+      </details>
+
+      <details>
+        <summary>Password Login</summary>
+        <div class="sub">POST <code>/api/auth/login</code> → <code>Login_User()</code></div>
+        <div class="flow">
+          <svg width="920" height="180" viewBox="0 0 920 180" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="arrow3" markerWidth="10" markerHeight="10" refX="10" refY="3" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L10,3 L0,6 Z" fill="#6ab7ff" />
+              </marker>
+              <style>
+                .box{fill:#0f1726;stroke:#2a3b54;stroke-width:1.2;rx:10;ry:10}
+                .lbl{fill:#e8eef6;font:600 12px system-ui}
+                .sm{fill:#a8b3c7;font:12px system-ui}
+                .edge{stroke:#6ab7ff;stroke-width:1.6;marker-end:url(#arrow3)}
+              </style>
+            </defs>
+            <rect class="box" x="20" y="24" width="210" height="52"/>
+            <text class="lbl" x="30" y="50">Login_User()</text>
+            <text class="sm" x="30" y="68">payload: email/pw</text>
+
+            <rect class="box" x="260" y="24" width="220" height="52"/>
+            <text class="lbl" x="270" y="50">Verify_password()</text>
+            <text class="sm" x="270" y="68">compare hash</text>
+
+            <rect class="box" x="520" y="24" width="220" height="52"/>
+            <text class="lbl" x="530" y="50">Create_user_session</text>
+
+            <rect class="box" x="780" y="24" width="120" height="52"/>
+            <text class="lbl" x="790" y="50">Return</text>
+            <text class="sm" x="790" y="68">UserRead</text>
+
+            <line class="edge" x1="230" y1="50" x2="260" y2="50"/>
+            <line class="edge" x1="480" y1="50" x2="520" y2="50"/>
+            <line class="edge" x1="740" y1="50" x2="780" y2="50"/>
+          </svg>
+        </div>
+      </details>
+
+      <details>
+        <summary>Google Login</summary>
+        <div class="sub">POST <code>/api/auth/google</code> → <code>Google_Sign_In()</code> → verify ID token</div>
+        <div class="flow">
+          <svg width="960" height="200" viewBox="0 0 960 200" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="arrow4" markerWidth="10" markerHeight="10" refX="10" refY="3" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L10,3 L0,6 Z" fill="#7bf1b4" />
+              </marker>
+              <style>
+                .box{fill:#0f1726;stroke:#2a3b54;stroke-width:1.2;rx:10;ry:10}
+                .lbl{fill:#e8eef6;font:600 12px system-ui}
+                .sm{fill:#a8b3c7;font:12px system-ui}
+                .edge{stroke:#7bf1b4;stroke-width:1.6;marker-end:url(#arrow4)}
+              </style>
+            </defs>
+            <rect class="box" x="20" y="24" width="210" height="52"/>
+            <text class="lbl" x="30" y="50">Google_Sign_In()</text>
+            <text class="sm" x="30" y="68">verify id_token</text>
+
+            <rect class="box" x="260" y="24" width="240" height="52"/>
+            <text class="lbl" x="270" y="50">Retrieve user (or create)</text>
+
+            <rect class="box" x="540" y="24" width="220" height="52"/>
+            <text class="lbl" x="550" y="50">Create_user_session</text>
+
+            <rect class="box" x="800" y="24" width="120" height="52"/>
+            <text class="lbl" x="810" y="50">Return</text>
+            <text class="sm" x="810" y="68">UserRead</text>
+
+            <line class="edge" x1="230" y1="50" x2="260" y2="50"/>
+            <line class="edge" x1="500" y1="50" x2="540" y2="50"/>
+            <line class="edge" x1="760" y1="50" x2="800" y2="50"/>
+          </svg>
+        </div>
+      </details>
+
+      <details>
+        <summary>Read Current Session</summary>
+        <div class="sub">GET <code>/api/auth/session</code> → <code>Get_session_user()</code> → depends on <code>Get_user_from_request()</code></div>
+        <div class="flow">
+          <svg width="980" height="220" viewBox="0 0 980 220" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="arrow5" markerWidth="10" markerHeight="10" refX="10" refY="3" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L10,3 L0,6 Z" fill="#6ab7ff" />
+              </marker>
+              <style>
+                .box{fill:#0f1726;stroke:#2a3b54;stroke-width:1.2;rx:10;ry:10}
+                .lbl{fill:#e8eef6;font:600 12px system-ui}
+                .sm{fill:#a8b3c7;font:12px system-ui}
+                .edge{stroke:#6ab7ff;stroke-width:1.6;marker-end:url(#arrow5)}
+              </style>
+            </defs>
+            <rect class="box" x="20" y="24" width="230" height="52"/>
+            <text class="lbl" x="30" y="50">Get_user_from_request()</text>
+            <text class="sm" x="30" y="68">read cookie</text>
+
+            <rect class="box" x="280" y="24" width="230" height="52"/>
+            <text class="lbl" x="290" y="50">Hash → lookup</text>
+            <text class="sm" x="290" y="68">Auth_Sessions</text>
+
+            <rect class="box" x="540" y="24" width="200" height="52"/>
+            <text class="lbl" x="550" y="50">Validate</text>
+            <text class="sm" x="550" y="68">not expired/revoked</text>
+
+            <rect class="box" x="770" y="24" width="180" height="52"/>
+            <text class="lbl" x="780" y="50">Return</text>
+            <text class="sm" x="780" y="68">User or None</text>
+
+            <line class="edge" x1="250" y1="50" x2="280" y2="50"/>
+            <line class="edge" x1="510" y1="50" x2="540" y2="50"/>
+            <line class="edge" x1="740" y1="50" x2="770" y2="50"/>
+          </svg>
+        </div>
+      </details>
+
+      <details>
+        <summary>Logout (Customer)</summary>
+        <div class="sub">POST <code>/api/auth/logout</code> → <code>Logout()</code> → <code>Clear_user_session()</code></div>
+        <div class="flow">
+          <svg width="880" height="200" viewBox="0 0 880 200" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="arrow6" markerWidth="10" markerHeight="10" refX="10" refY="3" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L10,3 L0,6 Z" fill="#ff7a7a" />
+              </marker>
+              <style>
+                .box{fill:#0f1726;stroke:#2a3b54;stroke-width:1.2;rx:10;ry:10}
+                .lbl{fill:#e8eef6;font:600 12px system-ui}
+                .sm{fill:#a8b3c7;font:12px system-ui}
+                .edge{stroke:#ff7a7a;stroke-width:1.6;marker-end:url(#arrow6)}
+              </style>
+            </defs>
+            <rect class="box" x="20" y="24" width="230" height="52"/>
+            <text class="lbl" x="30" y="50">Clear_user_session()</text>
+            <text class="sm" x="30" y="68">read cookie → hash</text>
+
+            <rect class="box" x="280" y="24" width="230" height="52"/>
+            <text class="lbl" x="290" y="50">Lookup sess row</text>
+
+            <rect class="box" x="540" y="24" width="170" height="52"/>
+            <text class="lbl" x="550" y="50">Revoke</text>
+            <text class="sm" x="550" y="68">set revoked_at</text>
+
+            <rect class="box" x="740" y="24" width="120" height="52"/>
+            <text class="lbl" x="750" y="50">Delete</text>
+            <text class="sm" x="750" y="68">cookie</text>
+
+            <line class="edge" x1="250" y1="50" x2="280" y2="50"/>
+            <line class="edge" x1="510" y1="50" x2="540" y2="50"/>
+            <line class="edge" x1="710" y1="50" x2="740" y2="50"/>
+          </svg>
+        </div>
+      </details>
+    </section>
+
+    <!-- ADMIN FLOW -->
+    <section style="margin-top:16px" class="card">
+      <h2>Admin Login & Access</h2>
+      <details open>
+        <summary>Login + Signed Cookie</summary>
+        <div class="sub">GET <code>/admin/login</code> (redirect if already authed) · POST <code>/admin/login</code> → <code>Login_submit()</code></div>
+        <div class="flow">
+          <svg width="980" height="220" viewBox="0 0 980 220" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="arrow7" markerWidth="10" markerHeight="10" refX="10" refY="3" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L10,3 L0,6 Z" fill="#6ab7ff" />
+              </marker>
+              <style>
+                .box{fill:#0f1726;stroke:#2a3b54;stroke-width:1.2;rx:10;ry:10}
+                .lbl{fill:#e8eef6;font:600 12px system-ui}
+                .sm{fill:#a8b3c7;font:12px system-ui}
+                .edge{stroke:#6ab7ff;stroke-width:1.6;marker-end:url(#arrow7)}
+              </style>
+            </defs>
+            <rect class="box" x="20" y="24" width="230" height="52"/>
+            <text class="lbl" x="30" y="50">Login_submit()</text>
+            <text class="sm" x="30" y="68">verify_password()</text>
+
+            <rect class="box" x="280" y="24" width="240" height="52"/>
+            <text class="lbl" x="290" y="50">Set_admin_session()</text>
+            <text class="sm" x="290" y="68">make_token(user.id)</text>
+
+            <rect class="box" x="560" y="24" width="260" height="52"/>
+            <text class="lbl" x="570" y="50">Cookie</text>
+            <text class="sm" x="570" y="68">Signed token set; no DB row</text>
+
+            <rect class="box" x="860" y="24" width="100" height="52"/>
+            <text class="lbl" x="870" y="50">Done</text>
+
+            <line class="edge" x1="250" y1="50" x2="280" y2="50"/>
+            <line class="edge" x1="520" y1="50" x2="560" y2="50"/>
+            <line class="edge" x1="820" y1="50" x2="860" y2="50"/>
+          </svg>
+        </div>
+      </details>
+
+      <details>
+        <summary>Protected Page/API Access</summary>
+        <div class="sub">Middleware / guard → <code>Get_admin_from_request()</code> → <code>Require_admin_API</code></div>
+        <div class="flow">
+          <svg width="980" height="200" viewBox="0 0 980 200" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="arrow8" markerWidth="10" markerHeight="10" refX="10" refY="3" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L10,3 L0,6 Z" fill="#7bf1b4" />
+              </marker>
+              <style>
+                .box{fill:#0f1726;stroke:#2a3b54;stroke-width:1.2;rx:10;ry:10}
+                .lbl{fill:#e8eef6;font:600 12px system-ui}
+                .sm{fill:#a8b3c7;font:12px system-ui}
+                .edge{stroke:#7bf1b4;stroke-width:1.6;marker-end:url(#arrow8)}
+              </style>
+            </defs>
+            <rect class="box" x="20" y="24" width="250" height="52"/>
+            <text class="lbl" x="30" y="50">Get_admin_from_request()</text>
+            <text class="sm" x="30" y="68">token = cookie</text>
+
+            <rect class="box" x="300" y="24" width="240" height="52"/>
+            <text class="lbl" x="310" y="50">decode_token()</text>
+            <text class="sm" x="310" y="68">validate signature + TTL</text>
+
+            <rect class="box" x="580" y="24" width="180" height="52"/>
+            <text class="lbl" x="590" y="50">Fetch Admin</text>
+
+            <rect class="box" x="800" y="24" width="150" height="52"/>
+            <text class="lbl" x="810" y="50">Authorize</text>
+
+            <line class="edge" x1="270" y1="50" x2="300" y2="50"/>
+            <line class="edge" x1="540" y1="50" x2="580" y2="50"/>
+            <line class="edge" x1="760" y1="50" x2="800" y2="50"/>
+          </svg>
+        </div>
+
+        <div class="legend">
+          <span class="chip">No server‑side revocation list</span>
+          <span class="chip">Logout = delete cookie</span>
+        </div>
+      </details>
+    </section>
+
+    <!-- REVOCATION -->
+    <section class="grid" style="margin-top:16px">
+      <div class="card">
+        <h2>Revocation</h2>
+        <table>
+          <thead><tr><th>Scope</th><th>Mechanism</th><th>Effect</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Customer (per session)</td>
+              <td>Logout → set <code>revoked_at</code> on session row → delete cookie</td>
+              <td>Subsequent requests using that cookie fail lookup and are unauthenticated.</td>
+            </tr>
+            <tr>
+              <td>Customer (global)</td>
+              <td>Admin endpoint <code>POST /admin/test/revoke-all-user-sessions</code></td>
+              <td>Deletes all <code>Auth_Sessions</code> rows → all customer cookies become invalid.</td>
+            </tr>
+            <tr>
+              <td>Admin</td>
+              <td>No DB session. Logout simply deletes the cookie.</td>
+              <td>Access requires a valid signed cookie on each request.</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="footer">Tip: monitor anomalies (UA/IP drift before TTL) to soft‑revoke sessions server‑side.</div>
+      </div>
+
+      <div class="card">
+        <h2>Key Invariants</h2>
+        <ul>
+          <li><span class="pill">Customer: <code>raw</code> never persisted</span></li>
+          <li><span class="pill">Admin: cookie signature & TTL are the source of truth</span></li>
+          <li><span class="pill">Revocation: DB‑backed allows selective invalidation</span></li>
+          <li><span class="pill">Secure flags: set <code>Secure</code>, <code>HttpOnly</code>, and <code>SameSite</code> as needed</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:16px">
+      <h2>Endpoint Reference</h2>
+      <table>
+        <thead><tr><th>Method</th><th>Path</th><th>Handler</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>POST</td><td><code>/api/users/auto</code></td><td><code>Auto_Login()</code></td><td>Optional <code>table_id</code>; creates guest & session</td></tr>
+          <tr><td>POST</td><td><code>/api/auth/register</code></td><td><code>Register_User()</code></td><td>Creates user → session</td></tr>
+          <tr><td>POST</td><td><code>/api/auth/login</code></td><td><code>Login_User()</code></td><td>Password verify → session</td></tr>
+          <tr><td>POST</td><td><code>/api/auth/google</code></td><td><code>Google_Sign_In()</code></td><td>Verify ID token → session</td></tr>
+          <tr><td>GET</td><td><code>/api/auth/session</code></td><td><code>Get_session_user()</code></td><td>Return <em>UserRead</em> or <em>None</em></td></tr>
+          <tr><td>POST</td><td><code>/api/auth/logout</code></td><td><code>Logout()</code></td><td>Revoke row + delete cookie</td></tr>
+          <tr><td>GET</td><td><code>/admin/login</code></td><td>—</td><td>Redirect if authed</td></tr>
+          <tr><td>POST</td><td><code>/admin/login</code></td><td><code>Login_submit()</code></td><td>Set signed cookie</td></tr>
+          <tr><td>POST</td><td><code>/admin/logout</code></td><td><code>security.Clear_admin_session()</code></td><td>Delete admin cookie</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <footer class="footer" style="text-align:center;margin-top:24px">
+      Static file – no external JS. You can print this page or save as PDF.
+    </footer>
+  </div>
+</body>
+</html>

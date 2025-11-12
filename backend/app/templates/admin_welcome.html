@@ -40,6 +40,17 @@
         cursor: pointer;
       }
       .muted { color: #6d4c41; font-size: 0.95rem; }
+      .flash {
+        margin: 0 0 1rem;
+        padding: 0.75rem 1rem;
+        border-radius: 10px;
+        font-weight: 600;
+      }
+      .flash.success {
+        background: rgba(76, 175, 80, 0.15);
+        color: #1b5e20;
+        border: 1px solid rgba(76, 175, 80, 0.25);
+      }
 
       /* Radial Admin Menu */
       .admin-menu { position: fixed; right: 24px; bottom: 24px; z-index: 1000; }
@@ -62,6 +73,9 @@
   <body>
     <div class="card">
       <h1>Area Staff</h1>
+      {% if reset_status == "success" %}
+        <div class="flash success">Dati ripristinati allo stato iniziale.</div>
+      {% endif %}
       {% if admin %}
         <p class="muted">Benvenuto, <strong>{{ admin.username }}</strong>.</p>
         <div class="actions">
@@ -77,6 +91,9 @@
           </form>
           <form method="post" action="/admin/test/revoke-all-user-sessions" onsubmit="return confirm('Revocare tutte le sessioni clienti?')">
             <button class="button" type="submit" style="background:linear-gradient(135deg,#9C27B0,#6A1B9A)">Revoca tutte le sessioni clienti</button>
+          </form>
+          <form method="post" action="/admin/test/reset-demo-data" onsubmit="return confirm('Questa azione cancella utenti, ordini e livelli di magazzino. Continuare?')">
+            <button class="button" type="submit" style="background:linear-gradient(135deg,#d32f2f,#b71c1c)">Reset dati demo</button>
           </form>
         </div>
       {% else %}
