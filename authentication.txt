@@ -1,0 +1,161 @@
+################## SESSION TYPES ######################################################
+
+    - Customer Session
+        - Cookie --> USER_SESSION_COOKIE
+        - Storage --> Auth_Sessions Table on PostgresDB (token_hash, expires_at, revoked_at, user_agent, ip)
+    
+    - Admin Session
+        - Cookie --> ADMIN_SESSION_COOKIE
+        - Storage --> Signed Token in Cookie only
+
+################## VARIABLES & HELPERS ################################################
+
+    - Customer
+        - USER_COOKIE / USER_COOKIE_SECURE / USER_SESSION_TTL
+        - Hash_token(raw) --> token_hash
+        - Create_user_session(response, db, user, request)
+                - raw --> Token to convert
+                - token_hash
+                - expires (now + TTL)
+                - ua --> User Agent
+                - ip --> Client IP
+                - sess --> AuthSession ORM
+        - Clear_user_session(response, request, db)
+        - Get_user_from_request(request, db)
+    
+    - Admin
+        - SECRET_KEY / SESSION_TTL / COOKIE_NAME / COOKIE_SECURE
+        - Serializer --> URLSafeTimedSerializer --> make_token(user_id) / decode_token(token)
+        - Set_admin_session(response, user)
+        - Clear_admin_session(response)
+        - Get_admin_from_request(request, db)
+        - Require_admin_API
+
+################## WHEN STORED #######################################################
+
+    - Stored when Create_user_session is called
+
+        - Guest Auto-Login --> Auto_Login() on success
+        - Registration --> Register_User()
+        - Password Login --> Login_User()
+        - Google Login --> Google_Sign_In()
+    
+    - Admin Sessions not Stored in DB --> Signed Cookie set at Login --> Login_Submit() --> Set_admin_session()
+
+################# FLOWS ###############################################################
+
+    - Guest Auto-Login (QR Scan)
+
+        - POST /api/users/auto --> Optional table_id --> Auto_Login()
+
+        - Variables
+                - Table_ID
+                - Guest Label
+                - User --> new User
+                - Optional Table
+                - DB Commit
+
+        - Call Create_user_session(response, db, user, request)
+                - raw --> Random Token
+                - token_hash --> Hashed Token
+                - Expires --> now + TTL
+                - Create AuthSession()
+                - db.commit()
+                - response.set_cookie(USER_COOKIE, raw, ...)
+
+        - Returns UserRead Object
+        - Storage --> Row in Auth_sessions with Token Hashed --> Cookie on client
+    
+    - Registration
+
+        - POST /api/auth/register --> Register_User()
+
+        - Variables
+                - Payload (Email / Password / Name / Surname / Table_ID)
+                - Existing
+                - Table
+                - User
+        
+        - Hash_Password()
+        - Create_user_session(response, db, user, request)
+        - Return UserRead Object
+    
+    - Password Login
+
+        - POST /api/auth/login --> Login_User()
+
+        - Variables
+                - Payload (Email / Password / Table_ID)
+                - User
+                - Table
+        
+        - Verify_password(payload.password, user.password_hash)
+        - Create_user_session(response, db, user, request) --> Store AuthSession + Set Cookie
+        - Returns UserRead
+    
+    - Google Login
+
+        - POST /api/auth/google --> Google_Sign_In()
+        - Verify ID Token --> google.oauth2.id_token_verify_oauth2_token()
+        - Retrieve User
+        - Create_user_session(response, db, user, request) --> Store AuthSession + Set Cookie
+        - Returns UserRead
+    
+    - Read Current Session
+
+        - GET /api/auth/session --> Get_session_user()
+        - Depends on Get_user_from_request(request, db)
+                - Variables
+                    - Token = Request Cookie user_session
+                    - Token_Hash
+                    - Sess = AuthSession corresponding row
+        - Returns UserRead | None
+    
+    - Logout (Customer)
+
+        - POST /api/auth/logout --> Logout()
+        - Clear_user_session(response, request, db)
+                - Variables
+                    - Token --> From Cookie
+                    - Token_Hash
+                    - Sess (row)
+        
+        - If sess row exists --> Set sess.revoked_at = now --> db.commit() --> response.delete_cookie(USER_COOKIE, path)
+        - Returns {"ok": true}
+    
+    - Admin Login & Access
+
+        - GET /admin/login --> Redirect to orders if authenticated
+        - POST /admin/login --> Login_submit()
+                - Variables
+                    - Username
+                    - Password
+                    - User (StaffUser)
+                - Verify --> security.verify_password()
+                - Set_admin_session(response, user) --> Set Signed Cookie with --> make_token(user.id) --> response.set_cookie()
+        
+        - Protected Pages Call --> security.Get_admin_from_request(request, db)
+                - Variables
+                    - Token = Admin Cookie
+                    - Decode_token(token) --> Validate Signature and TTL
+                    - Return user_id
+                    - Fetch Admin from DB
+        
+        - POST /admin/logout --> Logout() --> security.Clear_admin_session(response)
+
+################## REVOCATION ############################################################
+
+    - Customer (per session)
+
+        - Logout --> Set revoked_at for the sess row --> Delete cookie
+        - Next requests with that cookie fail session lookup
+    
+    - Customer (global)
+
+        - POST /admin/test/revoke-all-user-sessions --> Delete all rows in Auth_Sessions
+        - All existing customer cookies become invalid --> No token_hash exists anymore
+    
+    - Admin
+
+        - No DB Session --> Logout deletes the cookie
+
