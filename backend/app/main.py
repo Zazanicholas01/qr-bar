@@ -373,6 +373,28 @@ def _ensure_schema() -> None:
                                 "created": alert_dt,
                             },
                         )
+                    cb_item_id = sku_to_id.get("COLD-BREW-CONCENTRATE")
+                    ncr_id = supplier_ids.get("North Coast Roasters")
+                    if cb_item_id and ncr_id:
+                        alert_dt = datetime.utcnow() - timedelta(hours=1, minutes=30)
+                        qty = Decimal("12")
+                        price = Decimal("42.00")
+                        total = price * qty
+                        connection.execute(
+                            text(
+                                "INSERT INTO supply_orders (inventory_item_id, supplier_id, state, suggested_qty, unit, "
+                                "price_per_unit, total_price, sla_hours, alert_triggered_at, created_at) "
+                                "VALUES (:item,:supplier,'alert',:qty,'box',:price,:total,12,:alert,:alert)"
+                            ),
+                            {
+                                "item": cb_item_id,
+                                "supplier": ncr_id,
+                                "qty": qty,
+                                "price": price,
+                                "total": total,
+                                "alert": alert_dt,
+                            },
+                        )
 
                 # Recipes for existing menu product IDs
                 recipes = [
