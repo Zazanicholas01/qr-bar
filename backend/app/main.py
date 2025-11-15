@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from decimal import Decimal
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
@@ -223,6 +224,8 @@ def _ensure_schema() -> None:
                     ("SUGAR-SYRUP", "Sugar syrup", "ml"),
                     ("ICE-CUBE", "Ice cube", "pcs"),
                     ("ORANGE", "Orange", "pcs"),
+                    ("COLD-BREW-CONCENTRATE", "Cold Brew Concentrate", "gal"),
+                    ("CUP-16OZ-COMPOST", "Compostable Cold Cups 16oz", "sleeve"),
                 ]
                 for sku, name, unit in items:
                     connection.execute(
@@ -235,6 +238,90 @@ def _ensure_schema() -> None:
                 res = connection.execute(text("SELECT id, sku FROM inventory_items"))
                 for row in res:
                     sku_to_id[row[1]] = row[0]
+
+                par_targets = [
+                    ("COLD-BREW-CONCENTRATE", 30, 20),
+                    ("CUP-16OZ-COMPOST", 320, 220),
+                    ("COFFEE-BEANS", 60, 30),
+                ]
+                for sku, par_level, reorder_point in par_targets:
+                    connection.execute(
+                        text(
+                            "UPDATE inventory_items SET par_level = :par, reorder_point = :reorder WHERE sku = :sku"
+                        ),
+                        {"par": par_level, "reorder": reorder_point, "sku": sku},
+                    )
+
+                suppliers_seed = [
+                    ("North Coast Roasters", 48, "roasters@northcoast.example", "Tostatori artigianali · focus cold brew"),
+                    ("Summit Paper Co.", 24, "ops@summitpaper.example", "Packaging compostabile locale"),
+                    ("Harvest Dairies", 72, "sales@harvestdairies.example", "Forniamo latte fresco e alternative vegetali"),
+                ]
+                for name, lead_hours, email, notes in suppliers_seed:
+                    connection.execute(
+                        text(
+                            "INSERT INTO suppliers (name, lead_time_hours, contact_email, notes, created_at) "
+                            "VALUES (:name,:lead,:email,:notes, NOW()) "
+                            "ON CONFLICT (name) DO UPDATE SET lead_time_hours = EXCLUDED.lead_time_hours, "
+                            "contact_email = EXCLUDED.contact_email, notes = EXCLUDED.notes"
+                        ),
+                        {"name": name, "lead": lead_hours, "email": email, "notes": notes},
+                    )
+
+                supplier_ids = {
+                    row[1]: row[0]
+                    for row in connection.execute(text("SELECT id, name FROM suppliers"))
+                }
+
+                supplier_products_seed = [
+                    ("North Coast Roasters", "COLD-BREW-CONCENTRATE", 42.00, "box", 6),
+                    ("North Coast Roasters", "COFFEE-BEANS", 22.50, "kg", 2),
+                    ("Summit Paper Co.", "CUP-16OZ-COMPOST", 6.80, "sleeve", 50),
+                    ("Summit Paper Co.", "ORANGE", 18.00, "crate", 1),
+                    ("Harvest Dairies", "MILK", 1.45, "L", 48),
+                ]
+                for supplier_name, sku, price, unit_name, min_qty in supplier_products_seed:
+                    supplier_id = supplier_ids.get(supplier_name)
+                    item_id = sku_to_id.get(sku)
+                    if not supplier_id or not item_id:
+                        continue
+                    connection.execute(
+                        text(
+                            "INSERT INTO supplier_products (supplier_id, inventory_item_id, price_per_unit, unit, min_qty, created_at) "
+                            "VALUES (:sid,:item,:price,:unit,:min, NOW()) "
+                            "ON CONFLICT (supplier_id, inventory_item_id) DO UPDATE "
+                            "SET price_per_unit = EXCLUDED.price_per_unit, unit = EXCLUDED.unit, min_qty = EXCLUDED.min_qty"
+                        ),
+                        {"sid": supplier_id, "item": item_id, "price": price, "unit": unit_name, "min": min_qty},
+                    )
+
+                existing_supply_orders = connection.execute(text("SELECT COUNT(*) FROM supply_orders")).scalar() or 0
+                if existing_supply_orders == 0:
+                    cup_item_id = sku_to_id.get("CUP-16OZ-COMPOST")
+                    summit_id = supplier_ids.get("Summit Paper Co.")
+                    if cup_item_id and summit_id:
+                        alert_dt = datetime.utcnow() - timedelta(hours=3)
+                        ack_dt = alert_dt + timedelta(hours=1)
+                        qty = Decimal("220")
+                        price = Decimal("6.80")
+                        total = price * qty
+                        connection.execute(
+                            text(
+                                "INSERT INTO supply_orders (inventory_item_id, supplier_id, state, suggested_qty, unit, "
+                                "price_per_unit, total_price, sla_hours, alert_triggered_at, acknowledged_at, created_at) "
+                                "VALUES (:item,:supplier,'processed',:qty,'sleeve',:price,:total,8,:alert,:ack,:created)"
+                            ),
+                            {
+                                "item": cup_item_id,
+                                "supplier": summit_id,
+                                "qty": qty,
+                                "price": price,
+                                "total": total,
+                                "alert": alert_dt,
+                                "ack": ack_dt,
+                                "created": alert_dt,
+                            },
+                        )
 
                 # Recipes for existing menu product IDs
                 recipes = [
@@ -330,6 +417,8 @@ def _ensure_schema() -> None:
                     ("SUGAR-SYRUP", 3000, "ml"),
                     ("ICE-CUBE", 1000, "pcs"),
                     ("ORANGE", 50, "pcs"),
+                    ("COLD-BREW-CONCENTRATE", 18, "gal"),
+                    ("CUP-16OZ-COMPOST", 180, "sleeve"),
                 ]
                 for sku, qty, unit in seed_stock:
                     item_id = sku_to_id.get(sku)
@@ -912,9 +1001,79 @@ def admin_inventory(request: Request, db: Session = Depends(get_db)):
         }
         for itm, lvl in rows
     ]
+    alerts_created = inventory_svc.ensure_replenishment_alerts(db)
+    if alerts_created:
+        db.commit()
+
+    now = datetime.utcnow()
+    supply_rows = (
+        db.query(models.SupplyOrder, models.InventoryItem, models.Supplier)
+        .outerjoin(models.InventoryItem, models.SupplyOrder.inventory_item_id == models.InventoryItem.id)
+        .outerjoin(models.Supplier, models.SupplyOrder.supplier_id == models.Supplier.id)
+        .order_by(models.SupplyOrder.alert_triggered_at.desc())
+        .limit(20)
+        .all()
+    )
+
+    def fmt_currency(val):
+        if val is None:
+            return "—"
+        return f"€{float(val):,.2f}"
+
+    supply_orders = []
+    for order, item, supplier in supply_rows:
+        sla_hours = float(order.sla_hours or (supplier.lead_time_hours if supplier and supplier.lead_time_hours else 8))
+        acknowledged_at = order.acknowledged_at
+        elapsed_hours = (
+            max(0.0, (now - acknowledged_at).total_seconds() / 3600.0) if acknowledged_at else 0.0
+        )
+        progress_pct = min(100.0, (elapsed_hours / sla_hours) * 100.0) if acknowledged_at and sla_hours else 0.0
+        slider_value = min(elapsed_hours, sla_hours) if acknowledged_at else 0.0
+        qty_text = f"{float(order.suggested_qty):g} {order.unit}"
+        supplier_name = supplier.name if supplier else "—"
+        supplier_quote = supplier_name
+        if order.price_per_unit and supplier_name:
+            supplier_quote = f"{supplier_name} · {fmt_currency(order.price_per_unit)} / {order.unit}"
+        supply_orders.append(
+            {
+                "id": order.id,
+                "product": item.name if item else "—",
+                "state": order.state,
+                "qty_text": qty_text,
+                "supplier_name": supplier_name,
+                "supplier_quote": supplier_quote,
+                "total_price": fmt_currency(order.total_price),
+                "alert_time": order.alert_triggered_at.strftime("%H:%M"),
+                "ack_text": acknowledged_at.strftime("%H:%M") if acknowledged_at else None,
+                "sla_hours": sla_hours,
+                "elapsed_hours": elapsed_hours,
+                "progress_pct": progress_pct,
+                "slider_value": slider_value,
+                "actionable": order.state == "alert",
+            }
+        )
+
+    suppliers = db.query(models.Supplier).order_by(models.Supplier.name).all()
+    supplier_directory = []
+    for supplier in suppliers:
+        product_labels = []
+        for sp in sorted(supplier.products, key=lambda p: (p.inventory_item.name if p.inventory_item else "")):
+            label = sp.inventory_item.name if sp.inventory_item else f"Item #{sp.inventory_item_id}"
+            if sp.price_per_unit:
+                label = f"{label} ({fmt_currency(sp.price_per_unit)} / {sp.unit or (sp.inventory_item.unit if sp.inventory_item else '')})"
+            product_labels.append(label)
+        supplier_directory.append(
+            {
+                "name": supplier.name,
+                "lead": supplier.lead_time_hours,
+                "notes": supplier.notes,
+                "products": product_labels,
+            }
+        )
+
     return templates.TemplateResponse(
         "inventory.html",
-        {"request": request, "items": items},
+        {"request": request, "items": items, "supply_orders": supply_orders, "supplier_directory": supplier_directory},
     )
 
 
@@ -944,6 +1103,24 @@ def admin_inventory_adjust(
     )
     db.commit()
     return RedirectResponse(url="/admin/inventory", status_code=303)
+
+
+@app.post("/admin/inventory/supply-orders/{order_id}/ack")
+def admin_supply_order_ack(order_id: int, request: Request, db: Session = Depends(get_db)):
+    if not security.get_admin_from_request(request, db):
+        raise HTTPException(status_code=401, detail="Admin session required")
+    order = inventory_svc.acknowledge_supply_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Supply order not found")
+    db.commit()
+    return {
+        "status": "ok",
+        "order": {
+            "id": order.id,
+            "state": order.state,
+            "acknowledged_at": order.acknowledged_at.isoformat() if order.acknowledged_at else None,
+        },
+    }
 
 
 # =====================

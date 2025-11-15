@@ -26,6 +26,17 @@
       .actions { display: flex; gap: 0.5rem; align-items: center; }
       .row { display: flex; gap: 0.5rem; align-items: center; }
       .right { text-align: right; }
+      .status-badge { display:inline-flex; align-items:center; gap:0.3rem; padding:0.2rem 0.75rem; border-radius:999px; font-size:0.78rem; font-weight:600; border:1px solid rgba(78,52,46,0.2); text-transform:uppercase; letter-spacing:0.04em; }
+      .status-alert { color:#c62828; background:rgba(198,40,40,0.12); border-color:rgba(198,40,40,0.4); }
+      .status-processed { color:#2e7d32; background:rgba(46,125,50,0.12); border-color:rgba(46,125,50,0.4); }
+      .action-btn { padding:0.45rem 0.9rem; border-radius:999px; border:none; background:linear-gradient(135deg,#ffcc80,#ffb74d); color:#4e342e; font-weight:700; cursor:pointer; box-shadow:0 6px 18px rgba(78,52,46,0.25); transition:transform 0.2s ease; }
+      .action-btn:hover { transform:translateY(-1px); }
+      .action-btn:disabled { opacity:0.55; cursor:not-allowed; box-shadow:none; }
+      .timer { min-width:190px; }
+      .timer-text { font-size:0.78rem; color:rgba(62,39,35,0.7); margin-bottom:0.35rem; }
+      .progress-track { width:100%; height:7px; background:rgba(78,52,46,0.15); border-radius:999px; overflow:hidden; margin-bottom:0.3rem; }
+      .progress-fill { height:100%; background:linear-gradient(90deg,#f7c948,#ff8f00); }
+      .timer-range { width:100%; accent-color:#f7c948; cursor:not-allowed; }
       /* Radial admin menu styles (shared with other admin pages) */
       .admin-menu { position: fixed; right: 24px; bottom: 24px; z-index: 1000; }
       .admin-menu .main { position: relative; display: flex; justify-content: center; align-items: center; width: 188px; height: 188px; background-color: rgba(255,255,255,0.21); border-radius: 14px; backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,0.18); box-shadow: 0 20px 30px -10px rgba(38,57,77,0.35); }
@@ -109,6 +120,139 @@
           <p class="muted">Suggerimento: valori positivi aggiungono stock; negativi sottraggono.</p>
         </div>
       </div>
+
+      <div class="card" style="margin-top:1.5rem; overflow:auto;">
+        <h3 style="margin-top:0">Allarmi di reintegro &amp; alert</h3>
+        <p class="muted">Simile alla vista Ordini Chiusi: ogni alert indica il prodotto da ordinare, stato, quantità suggerita e fornitore con prezzo stimato.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Prodotto</th>
+              <th>Stato allarme</th>
+              <th>Q.tà suggerita</th>
+              <th>Fornitore · Prezzo</th>
+              <th>Azione / Timer</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if supply_orders %}
+              {% for order in supply_orders %}
+                <tr>
+                  <td>{{ order.product }}</td>
+                  <td>
+                    {% if order.state == "alert" %}
+                      <span class="status-badge status-alert">Alert</span>
+                    {% else %}
+                      <span class="status-badge status-processed">{{ order.state }}</span>
+                    {% endif %}
+                  </td>
+                  <td>{{ order.qty_text }}</td>
+                  <td>{{ order.supplier_quote }}</td>
+                  <td>
+                    {% if order.actionable %}
+                      <button class="action-btn" data-ack-order="{{ order.id }}">Acknowledge</button>
+                      <div class="timer-text">Allarme {{ order.alert_time }}</div>
+                    {% else %}
+                      <div class="timer">
+                        <div class="timer-text">Ack {{ order.ack_text }} · SLA {{ "%.0f"|format(order.sla_hours) }}h</div>
+                        <div class="progress-track"><div class="progress-fill" style="width:{{ order.progress_pct }}%"></div></div>
+                        <input type="range" class="timer-range" min="0" max="{{ order.sla_hours }}" value="{{ order.slider_value }}" disabled />
+                      </div>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="5" class="muted">Nessun alert aperto.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid" style="margin-top:1.5rem; grid-template-columns:repeat(auto-fit,minmax(320px,1fr));">
+        <div class="card" style="overflow:auto;">
+          <h3 style="margin-top:0">Tabella Supply_Orders</h3>
+          <p class="muted">Ogni alert crea subito un record da condividere con Acquisti/Venditori; l'ACK aggiorna lo stato.</p>
+          <table>
+            <thead>
+              <tr>
+                <th>ID Ordine</th>
+                <th>Prodotto</th>
+                <th>Fornitore</th>
+                <th>Stato</th>
+                <th>Q.tà</th>
+                <th>Prezzo</th>
+                <th>Alert → Ack</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if supply_orders %}
+                {% for order in supply_orders %}
+                  <tr>
+                    <td>#{{ order.id }}</td>
+                    <td>{{ order.product }}</td>
+                    <td>{{ order.supplier_name }}</td>
+                    <td>
+                      {% if order.state == "alert" %}
+                        <span class="status-badge status-alert">{{ order.state }}</span>
+                      {% else %}
+                        <span class="status-badge status-processed">{{ order.state }}</span>
+                      {% endif %}
+                    </td>
+                    <td>{{ order.qty_text }}</td>
+                    <td>{{ order.total_price }}</td>
+                    <td>{{ order.alert_time }} → {{ order.ack_text or "—" }}</td>
+                  </tr>
+                {% endfor %}
+              {% else %}
+                <tr><td colspan="7" class="muted">Ancora nessun ordine fornitore registrato.</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+          <p class="muted"><strong>DB actions:</strong> <code>INSERT</code> sul trigger dell'alert con <code>state = 'alert'</code>; quando viene cliccato “Acknowledge” eseguire <code>UPDATE</code> → <code>state='processed'</code> + <code>acknowledged_at</code> e apertura del timer SLA.</p>
+        </div>
+
+        <div class="card" style="overflow:auto;">
+          <h3 style="margin-top:0">Anagrafica fornitori (seed)</h3>
+          <p class="muted">Utilizzata per compilare suggerimenti automatici di quantità, fornitori e prezzi.</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Fornitore</th>
+                <th>Prodotti</th>
+                <th>Lead time</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if supplier_directory %}
+                {% for supplier in supplier_directory %}
+                  <tr>
+                    <td>{{ supplier.name }}</td>
+                    <td>
+                      {% if supplier.products %}
+                        {{ supplier.products|join(', ') }}
+                      {% else %}
+                        —
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if supplier.lead %}
+                        {{ supplier.lead }} h
+                      {% else %}
+                        —
+                      {% endif %}
+                    </td>
+                    <td>{{ supplier.notes or "—" }}</td>
+                  </tr>
+                {% endfor %}
+              {% else %}
+                <tr><td colspan="4" class="muted">Nessun fornitore configurato.</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </main>
 
     <!-- Floating radial admin menu (same pattern as other pages) -->
@@ -141,6 +285,24 @@
             finally { window.location.href = '/admin/login'; }
           });
         }
+        document.querySelectorAll('[data-ack-order]').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            const orderId = btn.dataset.ackOrder;
+            if (!orderId) return;
+            btn.disabled = true;
+            try {
+              const res = await fetch(`/admin/inventory/supply-orders/${orderId}/ack`, {
+                method: 'POST',
+                credentials: 'same-origin'
+              });
+              if (!res.ok) throw new Error('Errore nel salvataggio');
+              window.location.reload();
+            } catch (err) {
+              alert('Non è stato possibile confermare l\'alert. Riprova.');
+              btn.disabled = false;
+            }
+          });
+        });
       })();
     </script>
   </body>

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
@@ -115,3 +115,100 @@ def consume_stock_for_order(db: Session, order: models.Order, *, location_id: in
                 location_id=location_id,
                 created_by=created_by,
             )
+
+
+def ensure_replenishment_alerts(db: Session) -> bool:
+    """Insert SupplyOrder rows whenever stock drops below the reorder point."""
+    default_loc = _get_default_location_id(db)
+    created = False
+    now = datetime.utcnow()
+
+    rows = (
+        db.query(models.InventoryItem, models.StockLevel)
+        .outerjoin(
+            models.StockLevel,
+            and_(
+                models.StockLevel.item_id == models.InventoryItem.id,
+                models.StockLevel.location_id == default_loc,
+            ),
+        )
+        .all()
+    )
+    for item, level in rows:
+        reorder_point = Decimal(item.reorder_point or 0)
+        if reorder_point <= 0:
+            continue
+        qty_on_hand = Decimal(level.qty_on_hand_cached or 0) if level else Decimal("0")
+        if qty_on_hand > reorder_point:
+            continue
+        existing_order = (
+            db.query(models.SupplyOrder)
+            .filter(models.SupplyOrder.inventory_item_id == item.id)
+            .order_by(models.SupplyOrder.alert_triggered_at.desc())
+            .first()
+        )
+        if existing_order:
+            if existing_order.state == "alert":
+                continue
+            if existing_order.state == "processed":
+                if not existing_order.acknowledged_at:
+                    continue
+                sla_reference = float(
+                    existing_order.sla_hours
+                    or (
+                        existing_order.supplier.lead_time_hours
+                        if existing_order.supplier and existing_order.supplier.lead_time_hours
+                        else 24
+                    )
+                )
+                if sla_reference > 0 and (now - existing_order.acknowledged_at) < timedelta(hours=sla_reference):
+                    continue
+
+        par_level = Decimal(item.par_level or 0)
+        suggested_qty = par_level - qty_on_hand if par_level and par_level > qty_on_hand else reorder_point
+        if suggested_qty <= 0:
+            suggested_qty = reorder_point
+
+        supplier_product = (
+            db.query(models.SupplierProduct)
+            .filter(models.SupplierProduct.inventory_item_id == item.id)
+            .order_by(models.SupplierProduct.price_per_unit.asc())
+            .first()
+        )
+        supplier_id = supplier_product.supplier_id if supplier_product else None
+        unit = supplier_product.unit if supplier_product and supplier_product.unit else item.unit
+        price_per_unit = supplier_product.price_per_unit if supplier_product else None
+        total_price = price_per_unit * suggested_qty if price_per_unit is not None else None
+        sla_hours = None
+        if supplier_product and supplier_product.supplier and supplier_product.supplier.lead_time_hours:
+            sla_hours = supplier_product.supplier.lead_time_hours
+
+        order = models.SupplyOrder(
+            inventory_item_id=item.id,
+            supplier_id=supplier_id,
+            state="alert",
+            suggested_qty=suggested_qty,
+            unit=unit or item.unit,
+            price_per_unit=price_per_unit,
+            total_price=total_price,
+            sla_hours=sla_hours,
+            alert_triggered_at=now,
+        )
+        db.add(order)
+        created = True
+
+    if created:
+        db.flush()
+    return created
+
+
+def acknowledge_supply_order(db: Session, order_id: int) -> models.SupplyOrder | None:
+    order = db.query(models.SupplyOrder).filter(models.SupplyOrder.id == order_id).first()
+    if not order:
+        return None
+    if order.state != "processed":
+        order.state = "processed"
+        order.acknowledged_at = datetime.utcnow()
+        if not order.sla_hours and order.supplier and order.supplier.lead_time_hours:
+            order.sla_hours = order.supplier.lead_time_hours
+    return order

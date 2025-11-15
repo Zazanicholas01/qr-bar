@@ -182,6 +182,58 @@ class StockLevel(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class Supplier(Base):
+    __tablename__ = "suppliers"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(200), unique=True, nullable=False)
+    lead_time_hours = Column(Integer, nullable=True)
+    contact_email = Column(String(200), nullable=True)
+    notes = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    products = relationship("SupplierProduct", back_populates="supplier", cascade="all, delete-orphan")
+
+
+class SupplierProduct(Base):
+    __tablename__ = "supplier_products"
+
+    id = Column(Integer, primary_key=True)
+    supplier_id = Column(Integer, ForeignKey("suppliers.id", ondelete="CASCADE"), nullable=False)
+    inventory_item_id = Column(Integer, ForeignKey("inventory_items.id", ondelete="CASCADE"), nullable=False)
+    price_per_unit = Column(Numeric(12, 2), nullable=True)
+    unit = Column(String(16), nullable=True)
+    min_qty = Column(Numeric(12, 3), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    supplier = relationship("Supplier", back_populates="products")
+    inventory_item = relationship("InventoryItem")
+
+    __table_args__ = (
+        UniqueConstraint("supplier_id", "inventory_item_id", name="uq_supplier_product"),
+    )
+
+
+class SupplyOrder(Base):
+    __tablename__ = "supply_orders"
+
+    id = Column(Integer, primary_key=True)
+    inventory_item_id = Column(Integer, ForeignKey("inventory_items.id", ondelete="SET NULL"), nullable=True)
+    supplier_id = Column(Integer, ForeignKey("suppliers.id", ondelete="SET NULL"), nullable=True)
+    state = Column(String(24), nullable=False, default="alert")
+    suggested_qty = Column(Numeric(12, 3), nullable=False)
+    unit = Column(String(16), nullable=False, default="pcs")
+    price_per_unit = Column(Numeric(12, 2), nullable=True)
+    total_price = Column(Numeric(12, 2), nullable=True)
+    sla_hours = Column(Numeric(8, 2), nullable=True)
+    alert_triggered_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    acknowledged_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    inventory_item = relationship("InventoryItem")
+    supplier = relationship("Supplier")
+
+
 # =====================
 # Auth/session models
 # =====================
