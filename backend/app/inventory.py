@@ -136,10 +136,12 @@ def ensure_replenishment_alerts(db: Session) -> bool:
     )
     for item, level in rows:
         reorder_point = Decimal(item.reorder_point or 0)
-        if reorder_point <= 0:
+        threshold_qty = Decimal(item.alert_threshold_qty or 0)
+        trigger_qty = max(reorder_point, threshold_qty)
+        if trigger_qty <= 0:
             continue
         qty_on_hand = Decimal(level.qty_on_hand_cached or 0) if level else Decimal("0")
-        if qty_on_hand > reorder_point:
+        if qty_on_hand > trigger_qty:
             continue
         existing_order = (
             db.query(models.SupplyOrder)
@@ -165,9 +167,9 @@ def ensure_replenishment_alerts(db: Session) -> bool:
                     continue
 
         par_level = Decimal(item.par_level or 0)
-        suggested_qty = par_level - qty_on_hand if par_level and par_level > qty_on_hand else reorder_point
+        suggested_qty = par_level - qty_on_hand if par_level and par_level > qty_on_hand else trigger_qty
         if suggested_qty <= 0:
-            suggested_qty = reorder_point
+            suggested_qty = trigger_qty
 
         supplier_product = (
             db.query(models.SupplierProduct)

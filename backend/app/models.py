@@ -123,6 +123,8 @@ class InventoryItem(Base):
     unit = Column(String(16), nullable=False, default="pcs")  # e.g., ml, g, pcs
     par_level = Column(Numeric(12, 3), nullable=True)
     reorder_point = Column(Numeric(12, 3), nullable=True)
+    starting_stock_qty = Column(Numeric(12, 3), nullable=True)
+    alert_threshold_qty = Column(Numeric(12, 3), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 

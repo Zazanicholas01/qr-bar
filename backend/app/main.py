@@ -137,6 +137,16 @@ def _ensure_schema() -> None:
                 "ALTER TABLE orders ADD COLUMN IF NOT EXISTS table_ref_id INTEGER;"
             )
         )
+        connection.execute(
+            text(
+                "ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS starting_stock_qty NUMERIC(12,3);"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS alert_threshold_qty NUMERIC(12,3);"
+            )
+        )
 
         connection.execute(
             text(
@@ -427,10 +437,47 @@ def _ensure_schema() -> None:
                         {"iid": item_id, "loc": default_loc_id, "q": qty, "u": unit, "rid": item_id},
                     )
 
+                threshold_ratio = Decimal("0.2")
+                for sku, qty, _ in seed_stock:
+                    qty_decimal = Decimal(str(qty))
+                    threshold_qty = qty_decimal * threshold_ratio
+                    connection.execute(
+                        text(
+                            "UPDATE inventory_items "
+                            "SET starting_stock_qty = COALESCE(starting_stock_qty, :start_qty), "
+                            "alert_threshold_qty = COALESCE(alert_threshold_qty, :threshold) "
+                            "WHERE sku = :sku"
+                        ),
+                        {
+                            "start_qty": qty_decimal,
+                            "threshold": threshold_qty,
+                            "sku": sku,
+                        },
+                    )
+
             sku_to_id = {
                 row[1]: row[0]
                 for row in connection.execute(text("SELECT id, sku FROM inventory_items"))
             }
+
+            # Backfill thresholds for existing deployments using the seeded stock movements
+            connection.execute(
+                text(
+                    """
+                    WITH initial AS (
+                        SELECT item_id, SUM(qty_delta) AS qty
+                        FROM stock_movements
+                        WHERE ref_type = 'seed'
+                        GROUP BY item_id
+                    )
+                    UPDATE inventory_items ii
+                    SET starting_stock_qty = COALESCE(ii.starting_stock_qty, initial.qty),
+                        alert_threshold_qty = COALESCE(ii.alert_threshold_qty, initial.qty * 0.2)
+                    FROM initial
+                    WHERE ii.id = initial.item_id
+                    """
+                )
+            )
 
             existing_suppliers = connection.execute(text("SELECT COUNT(*) FROM suppliers")).scalar() or 0
             if existing_suppliers == 0:
