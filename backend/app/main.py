@@ -138,6 +138,57 @@ def _ensure_schema() -> None:
             )
         )
 
+        connection.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS suppliers (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(200) UNIQUE NOT NULL,
+                    lead_time_hours INTEGER,
+                    contact_email VARCHAR(200),
+                    notes VARCHAR(255),
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS supplier_products (
+                    id SERIAL PRIMARY KEY,
+                    supplier_id INTEGER NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+                    inventory_item_id INTEGER NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+                    price_per_unit NUMERIC(12,2),
+                    unit VARCHAR(16),
+                    min_qty NUMERIC(12,3),
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT uq_supplier_product UNIQUE (supplier_id, inventory_item_id)
+                );
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS supply_orders (
+                    id SERIAL PRIMARY KEY,
+                    inventory_item_id INTEGER REFERENCES inventory_items(id) ON DELETE SET NULL,
+                    supplier_id INTEGER REFERENCES suppliers(id) ON DELETE SET NULL,
+                    state VARCHAR(24) NOT NULL DEFAULT 'alert',
+                    suggested_qty NUMERIC(12,3) NOT NULL,
+                    unit VARCHAR(16) NOT NULL DEFAULT 'pcs',
+                    price_per_unit NUMERIC(12,2),
+                    total_price NUMERIC(12,2),
+                    sla_hours NUMERIC(8,2),
+                    alert_triggered_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    acknowledged_at TIMESTAMP,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+                """
+            )
+        )
+
         codes = set()
         result = connection.execute(
             text("SELECT DISTINCT table_code FROM orders WHERE table_code IS NOT NULL")
