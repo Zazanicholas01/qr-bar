@@ -303,99 +303,6 @@ def _ensure_schema() -> None:
                         {"par": par_level, "reorder": reorder_point, "sku": sku},
                     )
 
-                suppliers_seed = [
-                    ("North Coast Roasters", 48, "roasters@northcoast.example", "Tostatori artigianali · focus cold brew"),
-                    ("Summit Paper Co.", 24, "ops@summitpaper.example", "Packaging compostabile locale"),
-                    ("Harvest Dairies", 72, "sales@harvestdairies.example", "Forniamo latte fresco e alternative vegetali"),
-                ]
-                for name, lead_hours, email, notes in suppliers_seed:
-                    connection.execute(
-                        text(
-                            "INSERT INTO suppliers (name, lead_time_hours, contact_email, notes, created_at) "
-                            "VALUES (:name,:lead,:email,:notes, NOW()) "
-                            "ON CONFLICT (name) DO UPDATE SET lead_time_hours = EXCLUDED.lead_time_hours, "
-                            "contact_email = EXCLUDED.contact_email, notes = EXCLUDED.notes"
-                        ),
-                        {"name": name, "lead": lead_hours, "email": email, "notes": notes},
-                    )
-
-                supplier_ids = {
-                    row[1]: row[0]
-                    for row in connection.execute(text("SELECT id, name FROM suppliers"))
-                }
-
-                supplier_products_seed = [
-                    ("North Coast Roasters", "COLD-BREW-CONCENTRATE", 42.00, "box", 6),
-                    ("North Coast Roasters", "COFFEE-BEANS", 22.50, "kg", 2),
-                    ("Summit Paper Co.", "CUP-16OZ-COMPOST", 6.80, "sleeve", 50),
-                    ("Summit Paper Co.", "ORANGE", 18.00, "crate", 1),
-                    ("Harvest Dairies", "MILK", 1.45, "L", 48),
-                ]
-                for supplier_name, sku, price, unit_name, min_qty in supplier_products_seed:
-                    supplier_id = supplier_ids.get(supplier_name)
-                    item_id = sku_to_id.get(sku)
-                    if not supplier_id or not item_id:
-                        continue
-                    connection.execute(
-                        text(
-                            "INSERT INTO supplier_products (supplier_id, inventory_item_id, price_per_unit, unit, min_qty, created_at) "
-                            "VALUES (:sid,:item,:price,:unit,:min, NOW()) "
-                            "ON CONFLICT (supplier_id, inventory_item_id) DO UPDATE "
-                            "SET price_per_unit = EXCLUDED.price_per_unit, unit = EXCLUDED.unit, min_qty = EXCLUDED.min_qty"
-                        ),
-                        {"sid": supplier_id, "item": item_id, "price": price, "unit": unit_name, "min": min_qty},
-                    )
-
-                existing_supply_orders = connection.execute(text("SELECT COUNT(*) FROM supply_orders")).scalar() or 0
-                if existing_supply_orders == 0:
-                    cup_item_id = sku_to_id.get("CUP-16OZ-COMPOST")
-                    summit_id = supplier_ids.get("Summit Paper Co.")
-                    if cup_item_id and summit_id:
-                        alert_dt = datetime.utcnow() - timedelta(hours=3)
-                        ack_dt = alert_dt + timedelta(hours=1)
-                        qty = Decimal("220")
-                        price = Decimal("6.80")
-                        total = price * qty
-                        connection.execute(
-                            text(
-                                "INSERT INTO supply_orders (inventory_item_id, supplier_id, state, suggested_qty, unit, "
-                                "price_per_unit, total_price, sla_hours, alert_triggered_at, acknowledged_at, created_at) "
-                                "VALUES (:item,:supplier,'processed',:qty,'sleeve',:price,:total,8,:alert,:ack,:created)"
-                            ),
-                            {
-                                "item": cup_item_id,
-                                "supplier": summit_id,
-                                "qty": qty,
-                                "price": price,
-                                "total": total,
-                                "alert": alert_dt,
-                                "ack": ack_dt,
-                                "created": alert_dt,
-                            },
-                        )
-                    cb_item_id = sku_to_id.get("COLD-BREW-CONCENTRATE")
-                    ncr_id = supplier_ids.get("North Coast Roasters")
-                    if cb_item_id and ncr_id:
-                        alert_dt = datetime.utcnow() - timedelta(hours=1, minutes=30)
-                        qty = Decimal("12")
-                        price = Decimal("42.00")
-                        total = price * qty
-                        connection.execute(
-                            text(
-                                "INSERT INTO supply_orders (inventory_item_id, supplier_id, state, suggested_qty, unit, "
-                                "price_per_unit, total_price, sla_hours, alert_triggered_at, created_at) "
-                                "VALUES (:item,:supplier,'alert',:qty,'box',:price,:total,12,:alert,:alert)"
-                            ),
-                            {
-                                "item": cb_item_id,
-                                "supplier": ncr_id,
-                                "qty": qty,
-                                "price": price,
-                                "total": total,
-                                "alert": alert_dt,
-                            },
-                        )
-
                 # Recipes for existing menu product IDs
                 recipes = [
                     # product_id, yield_qty, yield_unit
@@ -518,6 +425,108 @@ def _ensure_schema() -> None:
                             "WHERE item_id = :iid AND location_id = :loc AND EXISTS (SELECT 1 FROM ins)"
                         ),
                         {"iid": item_id, "loc": default_loc_id, "q": qty, "u": unit, "rid": item_id},
+                    )
+
+            sku_to_id = {
+                row[1]: row[0]
+                for row in connection.execute(text("SELECT id, sku FROM inventory_items"))
+            }
+
+            existing_suppliers = connection.execute(text("SELECT COUNT(*) FROM suppliers")).scalar() or 0
+            if existing_suppliers == 0:
+                suppliers_seed = [
+                    ("North Coast Roasters", 48, "roasters@northcoast.example", "Tostatori artigianali · focus cold brew"),
+                    ("Summit Paper Co.", 24, "ops@summitpaper.example", "Packaging compostabile locale"),
+                    ("Harvest Dairies", 72, "sales@harvestdairies.example", "Forniamo latte fresco e alternative vegetali"),
+                ]
+                for name, lead_hours, email, notes in suppliers_seed:
+                    connection.execute(
+                        text(
+                            "INSERT INTO suppliers (name, lead_time_hours, contact_email, notes, created_at) "
+                            "VALUES (:name,:lead,:email,:notes, NOW()) "
+                            "ON CONFLICT (name) DO UPDATE SET lead_time_hours = EXCLUDED.lead_time_hours, "
+                            "contact_email = EXCLUDED.contact_email, notes = EXCLUDED.notes"
+                        ),
+                        {"name": name, "lead": lead_hours, "email": email, "notes": notes},
+                    )
+
+            supplier_ids = {
+                row[1]: row[0]
+                for row in connection.execute(text("SELECT id, name FROM suppliers"))
+            }
+
+            existing_supplier_products = connection.execute(text("SELECT COUNT(*) FROM supplier_products")).scalar() or 0
+            if existing_supplier_products == 0:
+                supplier_products_seed = [
+                    ("North Coast Roasters", "COLD-BREW-CONCENTRATE", 42.00, "box", 6),
+                    ("North Coast Roasters", "COFFEE-BEANS", 22.50, "kg", 2),
+                    ("Summit Paper Co.", "CUP-16OZ-COMPOST", 6.80, "sleeve", 50),
+                    ("Summit Paper Co.", "ORANGE", 18.00, "crate", 1),
+                    ("Harvest Dairies", "MILK", 1.45, "L", 48),
+                ]
+                for supplier_name, sku, price, unit_name, min_qty in supplier_products_seed:
+                    supplier_id = supplier_ids.get(supplier_name)
+                    item_id = sku_to_id.get(sku)
+                    if not supplier_id or not item_id:
+                        continue
+                    connection.execute(
+                        text(
+                            "INSERT INTO supplier_products (supplier_id, inventory_item_id, price_per_unit, unit, min_qty, created_at) "
+                            "VALUES (:sid,:item,:price,:unit,:min, NOW()) "
+                            "ON CONFLICT (supplier_id, inventory_item_id) DO UPDATE "
+                            "SET price_per_unit = EXCLUDED.price_per_unit, unit = EXCLUDED.unit, min_qty = EXCLUDED.min_qty"
+                        ),
+                        {"sid": supplier_id, "item": item_id, "price": price, "unit": unit_name, "min": min_qty},
+                    )
+
+            existing_supply_orders = connection.execute(text("SELECT COUNT(*) FROM supply_orders")).scalar() or 0
+            if existing_supply_orders == 0:
+                cup_item_id = sku_to_id.get("CUP-16OZ-COMPOST")
+                summit_id = supplier_ids.get("Summit Paper Co.")
+                if cup_item_id and summit_id:
+                    alert_dt = datetime.utcnow() - timedelta(hours=3)
+                    ack_dt = alert_dt + timedelta(hours=1)
+                    qty = Decimal("220")
+                    price = Decimal("6.80")
+                    total = price * qty
+                    connection.execute(
+                        text(
+                            "INSERT INTO supply_orders (inventory_item_id, supplier_id, state, suggested_qty, unit, "
+                            "price_per_unit, total_price, sla_hours, alert_triggered_at, acknowledged_at, created_at) "
+                            "VALUES (:item,:supplier,'processed',:qty,'sleeve',:price,:total,8,:alert,:ack,:created)"
+                        ),
+                        {
+                            "item": cup_item_id,
+                            "supplier": summit_id,
+                            "qty": qty,
+                            "price": price,
+                            "total": total,
+                            "alert": alert_dt,
+                            "ack": ack_dt,
+                            "created": alert_dt,
+                        },
+                    )
+                cb_item_id = sku_to_id.get("COLD-BREW-CONCENTRATE")
+                ncr_id = supplier_ids.get("North Coast Roasters")
+                if cb_item_id and ncr_id:
+                    alert_dt = datetime.utcnow() - timedelta(hours=1, minutes=30)
+                    qty = Decimal("12")
+                    price = Decimal("42.00")
+                    total = price * qty
+                    connection.execute(
+                        text(
+                            "INSERT INTO supply_orders (inventory_item_id, supplier_id, state, suggested_qty, unit, "
+                            "price_per_unit, total_price, sla_hours, alert_triggered_at, created_at) "
+                            "VALUES (:item,:supplier,'alert',:qty,'box',:price,:total,12,:alert,:alert)"
+                        ),
+                        {
+                            "item": cb_item_id,
+                            "supplier": ncr_id,
+                            "qty": qty,
+                            "price": price,
+                            "total": total,
+                            "alert": alert_dt,
+                        },
                     )
         finally:
             # Release advisory lock
