@@ -152,6 +152,10 @@
                     {% if order.actionable %}
                       <button class="action-btn" data-ack-order="{{ order.id }}">Acknowledge</button>
                       <div class="timer-text">Allarme {{ order.alert_time }}</div>
+                    {% elif order.restocked %}
+                      <div class="timer">
+                        <div class="timer-text">{{ order.restock_text }}</div>
+                      </div>
                     {% else %}
                       <div class="timer">
                         <div class="timer-text">Ack {{ order.ack_text }} · SLA {{ "%.0f"|format(order.sla_hours) }}h</div>
@@ -209,7 +213,7 @@
               {% endif %}
             </tbody>
           </table>
-          <p class="muted"><strong>DB actions:</strong> <code>INSERT</code> sul trigger dell'alert con <code>state = 'alert'</code>; quando viene cliccato “Acknowledge” eseguire <code>UPDATE</code> → <code>state='processed'</code> + <code>acknowledged_at</code> e apertura del timer SLA.</p>
+          <p class="muted"><strong>DB actions:</strong> <code>INSERT</code> sul trigger dell'alert con <code>state = 'alert'</code>; quando viene cliccato “Acknowledge” eseguire <code>UPDATE</code> → <code>state='processed'</code> + <code>acknowledged_at</code> e apertura del timer SLA; allo scadere del timer un job automatico ripristina la quantità con un movimento stock e imposta <code>state='fulfilled'</code>.</p>
         </div>
 
         <div class="card" style="overflow:auto;">

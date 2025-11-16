@@ -204,6 +204,60 @@ def ensure_replenishment_alerts(db: Session) -> bool:
     return created
 
 
+def finalize_processed_supply_orders(db: Session) -> bool:
+    """Restock items for processed orders whose SLA timer completed."""
+    now = datetime.utcnow()
+    changed = False
+
+    orders = (
+        db.query(models.SupplyOrder)
+        .filter(
+            models.SupplyOrder.state == "processed",
+            models.SupplyOrder.acknowledged_at.isnot(None),
+        )
+        .all()
+    )
+
+    for order in orders:
+        ack = order.acknowledged_at
+        if not ack:
+            continue
+        sla_reference = order.sla_hours
+        if (sla_reference is None or float(sla_reference) <= 0) and order.supplier and order.supplier.lead_time_hours:
+            sla_reference = order.supplier.lead_time_hours
+        if sla_reference is None or float(sla_reference) <= 0:
+            sla_reference = 24
+
+        if (now - ack) < timedelta(hours=float(sla_reference)):
+            continue
+
+        item = order.inventory_item
+        if not item:
+            continue
+
+        qty = Decimal(order.suggested_qty or 0)
+        if qty <= 0:
+            continue
+
+        _record_movement(
+            db,
+            item_id=item.id,
+            qty_delta=qty,
+            unit=order.unit or item.unit,
+            reason="restock",
+            ref_type="supply-order",
+            ref_id=order.id,
+            created_by="auto-restock",
+        )
+        order.state = "fulfilled"
+        changed = True
+
+    if changed:
+        db.flush()
+
+    return changed
+
+
 def acknowledge_supply_order(db: Session, order_id: int) -> models.SupplyOrder | None:
     order = db.query(models.SupplyOrder).filter(models.SupplyOrder.id == order_id).first()
     if not order:

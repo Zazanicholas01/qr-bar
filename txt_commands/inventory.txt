@@ -1,0 +1,38 @@
+############# DATA & SEED ##########################################
+
+    - Inventory / Supply / Recipe --> Modeled in SQLAlchemy
+
+        - Items
+            - SKU / Unit / Par / Reorder Points
+        
+        - Recipe
+            - Map Menu Products & Inventory Components
+        
+        - Stock Movement / Levels & Suppliers
+            - Capture Supply Chain State
+    
+    - On Startup
+        - Call ensure_schema() --> Creates & Migrates Tables --> Seed Default Elements
+    
+############ INVENTORY EVENTS ########################################à
+
+    - Record_movement() --> Writes StockMovement row --> Synchronizes cached StockLevel quantity
+
+    - On /admin/orders/{id}/checkout
+        - Update Payment Data
+        - Call inventory_svc.consume_stock_for_order() --> Lookup Recipe --> Scale component usage --> Issue "Sale" Movement --> Link to the order
+    
+    - POST /admin/inventory/adjust
+        - Manual Adjustments --> Resolve item by SKU --> Call Record_movement() --> Reason "Adjust" --> Commit the movement
+    
+    - With Inventory Dashboard Opened
+        - Join Items with cached Stock Levels --> Display
+        - Ensure_replenishment_alerts() --> If items below Threshold --> Create SupplyOrder --> Suggested Quantities
+    
+    - Supply Orders
+        - State "Alert" --> Until Acknowledgment
+        - Display on Dashboard list
+        - /admin/inventory/supply-orders/{id}/ack --> Flip state to "Processed" --> Stamps Acknowledged_at --> Persist Update
+
+############### BACKEND / DATABASE COMMUNICATION ########################à
+

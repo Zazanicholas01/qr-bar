@@ -1109,6 +1109,7 @@ def list_closed_orders(
 def admin_inventory(request: Request, db: Session = Depends(get_db)):
     if not security.get_admin_from_request(request, db):
         return RedirectResponse(url="/admin/login", status_code=303)
+    restocked = inventory_svc.finalize_processed_supply_orders(db)
     # Resolve default location id for display
     default_loc = db.query(models.InventoryLocation).filter(models.InventoryLocation.name == "Default").first()
     default_loc_id = default_loc.id if default_loc else None
@@ -1131,7 +1132,7 @@ def admin_inventory(request: Request, db: Session = Depends(get_db)):
         for itm, lvl in rows
     ]
     alerts_created = inventory_svc.ensure_replenishment_alerts(db)
-    if alerts_created:
+    if restocked or alerts_created:
         db.commit()
 
     now = datetime.utcnow()
@@ -1158,6 +1159,14 @@ def admin_inventory(request: Request, db: Session = Depends(get_db)):
         )
         progress_pct = min(100.0, (elapsed_hours / sla_hours) * 100.0) if acknowledged_at and sla_hours else 0.0
         slider_value = min(elapsed_hours, sla_hours) if acknowledged_at else 0.0
+        fulfillment_eta = acknowledged_at + timedelta(hours=sla_hours) if acknowledged_at and sla_hours else None
+        is_fulfilled = order.state == "fulfilled"
+        restock_text = None
+        if is_fulfilled:
+            if fulfillment_eta:
+                restock_text = f"Reintegro automatico alle {fulfillment_eta.strftime('%H:%M')}"
+            else:
+                restock_text = "Reintegro automatico completato"
         qty_text = f"{float(order.suggested_qty):g} {order.unit}"
         supplier_name = supplier.name if supplier else "—"
         supplier_quote = supplier_name
@@ -1179,6 +1188,8 @@ def admin_inventory(request: Request, db: Session = Depends(get_db)):
                 "progress_pct": progress_pct,
                 "slider_value": slider_value,
                 "actionable": order.state == "alert",
+                "restocked": is_fulfilled,
+                "restock_text": restock_text,
             }
         )
 
