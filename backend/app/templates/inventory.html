@@ -158,7 +158,7 @@
                       </div>
                     {% else %}
                       <div class="timer">
-                        <div class="timer-text">Ack {{ order.ack_text }} · SLA {{ "%.0f"|format(order.sla_hours) }}h</div>
+                        <div class="timer-text">Ack {{ order.ack_text }} · SLA {{ order.sla_label }}</div>
                         <div class="progress-track"><div class="progress-fill" style="width:{{ order.progress_pct }}%"></div></div>
                         <input type="range" class="timer-range" min="0" max="{{ order.sla_hours }}" value="{{ order.slider_value }}" disabled />
                       </div>

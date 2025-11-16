@@ -8,6 +8,22 @@ from sqlalchemy import and_
 from . import models
 
 
+TEST_SLA_MINUTES = 2
+TEST_SLA_HOURS = (Decimal(TEST_SLA_MINUTES) / Decimal(60)) if TEST_SLA_MINUTES else None
+
+
+def resolve_sla_hours(explicit_hours: Decimal | None, supplier: models.Supplier | None) -> Decimal:
+    """Return the SLA duration (hours) honoring the testing override when set."""
+    if TEST_SLA_HOURS is not None and float(TEST_SLA_HOURS) > 0:
+        return TEST_SLA_HOURS
+    if explicit_hours is not None and float(explicit_hours) > 0:
+        return Decimal(explicit_hours)
+    supplier_lead = supplier.lead_time_hours if supplier else None
+    if supplier_lead is not None and float(supplier_lead) > 0:
+        return Decimal(supplier_lead)
+    return Decimal("24")
+
+
 def _get_default_location_id(db: Session) -> int:
     """Resolve or create the default inventory location and return its id."""
     loc = db.query(models.InventoryLocation).filter(models.InventoryLocation.name == "Default").first()
@@ -155,14 +171,7 @@ def ensure_replenishment_alerts(db: Session) -> bool:
             if existing_order.state == "processed":
                 if not existing_order.acknowledged_at:
                     continue
-                sla_reference = float(
-                    existing_order.sla_hours
-                    or (
-                        existing_order.supplier.lead_time_hours
-                        if existing_order.supplier and existing_order.supplier.lead_time_hours
-                        else 24
-                    )
-                )
+                sla_reference = float(resolve_sla_hours(existing_order.sla_hours, existing_order.supplier))
                 if sla_reference > 0 and (now - existing_order.acknowledged_at) < timedelta(hours=sla_reference):
                     continue
 
@@ -181,9 +190,11 @@ def ensure_replenishment_alerts(db: Session) -> bool:
         unit = supplier_product.unit if supplier_product and supplier_product.unit else item.unit
         price_per_unit = supplier_product.price_per_unit if supplier_product else None
         total_price = price_per_unit * suggested_qty if price_per_unit is not None else None
-        sla_hours = None
-        if supplier_product and supplier_product.supplier and supplier_product.supplier.lead_time_hours:
-            sla_hours = supplier_product.supplier.lead_time_hours
+        supplier_obj = supplier_product.supplier if supplier_product else None
+        sla_hours = resolve_sla_hours(
+            supplier_obj.lead_time_hours if supplier_obj and supplier_obj.lead_time_hours else None,
+            supplier_obj,
+        )
 
         order = models.SupplyOrder(
             inventory_item_id=item.id,
@@ -222,12 +233,7 @@ def finalize_processed_supply_orders(db: Session) -> bool:
         ack = order.acknowledged_at
         if not ack:
             continue
-        sla_reference = order.sla_hours
-        if (sla_reference is None or float(sla_reference) <= 0) and order.supplier and order.supplier.lead_time_hours:
-            sla_reference = order.supplier.lead_time_hours
-        if sla_reference is None or float(sla_reference) <= 0:
-            sla_reference = 24
-
+        sla_reference = resolve_sla_hours(order.sla_hours, order.supplier)
         if (now - ack) < timedelta(hours=float(sla_reference)):
             continue
 
@@ -265,6 +271,5 @@ def acknowledge_supply_order(db: Session, order_id: int) -> models.SupplyOrder |
     if order.state != "processed":
         order.state = "processed"
         order.acknowledged_at = datetime.utcnow()
-        if not order.sla_hours and order.supplier and order.supplier.lead_time_hours:
-            order.sla_hours = order.supplier.lead_time_hours
+        order.sla_hours = resolve_sla_hours(order.sla_hours, order.supplier)
     return order

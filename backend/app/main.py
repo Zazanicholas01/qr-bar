@@ -1152,7 +1152,7 @@ def admin_inventory(request: Request, db: Session = Depends(get_db)):
 
     supply_orders = []
     for order, item, supplier in supply_rows:
-        sla_hours = float(order.sla_hours or (supplier.lead_time_hours if supplier and supplier.lead_time_hours else 8))
+        sla_hours = float(inventory_svc.resolve_sla_hours(order.sla_hours, supplier))
         acknowledged_at = order.acknowledged_at
         elapsed_hours = (
             max(0.0, (now - acknowledged_at).total_seconds() / 3600.0) if acknowledged_at else 0.0
@@ -1161,6 +1161,10 @@ def admin_inventory(request: Request, db: Session = Depends(get_db)):
         slider_value = min(elapsed_hours, sla_hours) if acknowledged_at else 0.0
         fulfillment_eta = acknowledged_at + timedelta(hours=sla_hours) if acknowledged_at and sla_hours else None
         is_fulfilled = order.state == "fulfilled"
+        if sla_hours < 1:
+            sla_label = f"{max(1, int(round(sla_hours * 60)))}m"
+        else:
+            sla_label = f"{sla_hours:.0f}h"
         restock_text = None
         if is_fulfilled:
             if fulfillment_eta:
@@ -1190,6 +1194,7 @@ def admin_inventory(request: Request, db: Session = Depends(get_db)):
                 "actionable": order.state == "alert",
                 "restocked": is_fulfilled,
                 "restock_text": restock_text,
+                "sla_label": sla_label,
             }
         )
 
