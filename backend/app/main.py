@@ -1171,6 +1171,16 @@ def admin_inventory(request: Request, db: Session = Depends(get_db)):
                 restock_text = f"Reintegro automatico alle {fulfillment_eta.strftime('%H:%M')}"
             else:
                 restock_text = "Reintegro automatico completato"
+        if fulfillment_eta:
+            expires_at_text = fulfillment_eta.strftime("%H:%M")
+            minutes_left = max(0, int((fulfillment_eta - now).total_seconds() / 60))
+            if minutes_left > 0:
+                expires_indicator = f"Scadenza tra {minutes_left}m"
+            else:
+                expires_indicator = "In consegna"
+        else:
+            expires_at_text = None
+            expires_indicator = None
         qty_text = f"{float(order.suggested_qty):g} {order.unit}"
         supplier_name = supplier.name if supplier else "—"
         supplier_quote = supplier_name
@@ -1195,6 +1205,8 @@ def admin_inventory(request: Request, db: Session = Depends(get_db)):
                 "restocked": is_fulfilled,
                 "restock_text": restock_text,
                 "sla_label": sla_label,
+                "expires_text": expires_at_text,
+                "expires_indicator": expires_indicator,
             }
         )
 

@@ -159,6 +159,9 @@
                     {% else %}
                       <div class="timer">
                         <div class="timer-text">Ack {{ order.ack_text }} · SLA {{ order.sla_label }}</div>
+                        {% if order.expires_text %}
+                          <div class="timer-text muted">Scade alle {{ order.expires_text }}{% if order.expires_indicator %} · {{ order.expires_indicator }}{% endif %}</div>
+                        {% endif %}
                         <div class="progress-track"><div class="progress-fill" style="width:{{ order.progress_pct }}%"></div></div>
                         <input type="range" class="timer-range" min="0" max="{{ order.sla_hours }}" value="{{ order.slider_value }}" disabled />
                       </div>
