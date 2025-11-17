@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, Form
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -147,6 +147,21 @@ def _ensure_schema() -> None:
                 "ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS alert_threshold_qty NUMERIC(12,3);"
             )
         )
+        connection.execute(
+            text(
+                "ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS storage_capacity_qty NUMERIC(12,3);"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS holding_cost_per_unit NUMERIC(12,2);"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS stockout_cost_per_unit NUMERIC(12,2);"
+            )
+        )
 
         connection.execute(
             text(
@@ -180,6 +195,11 @@ def _ensure_schema() -> None:
         )
         connection.execute(
             text(
+                "ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS discount_pct NUMERIC(5,2);"
+            )
+        )
+        connection.execute(
+            text(
                 """
                 CREATE TABLE IF NOT EXISTS supply_orders (
                     id SERIAL PRIMARY KEY,
@@ -193,6 +213,42 @@ def _ensure_schema() -> None:
                     sla_hours NUMERIC(8,2),
                     alert_triggered_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     acknowledged_at TIMESTAMP,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+                """
+            )
+        )
+        connection.execute(
+            text("ALTER TABLE supply_orders ADD COLUMN IF NOT EXISTS fulfilled_at TIMESTAMP;")
+        )
+        connection.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS simulation_runs (
+                    id SERIAL PRIMARY KEY,
+                    label VARCHAR(120),
+                    status VARCHAR(24) NOT NULL DEFAULT 'running',
+                    runtime_minutes INTEGER NOT NULL DEFAULT 30,
+                    orders_created INTEGER NOT NULL DEFAULT 0,
+                    orders_closed INTEGER NOT NULL DEFAULT 0,
+                    notes VARCHAR(255),
+                    started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    ended_at TIMESTAMP
+                );
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS inventory_policy_training_logs (
+                    id SERIAL PRIMARY KEY,
+                    item_id INTEGER REFERENCES inventory_items(id) ON DELETE SET NULL,
+                    supply_order_id INTEGER REFERENCES supply_orders(id) ON DELETE SET NULL,
+                    simulation_run_id INTEGER REFERENCES simulation_runs(id) ON DELETE SET NULL,
+                    context_features JSONB NOT NULL,
+                    decision_snapshot JSONB NOT NULL,
+                    outcome_snapshot JSONB,
                     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
                 """
@@ -734,9 +790,29 @@ def admin_welcome(request: Request, db: Session = Depends(get_db)):
     """Simple welcome page for staff: link to login or orders if authenticated."""
     admin = security.get_admin_from_request(request, db)
     reset_status = request.query_params.get("reset")
+    sim_status = request.query_params.get("sim")
+    latest_run = (
+        db.query(models.SimulationRun)
+        .order_by(models.SimulationRun.started_at.desc())
+        .first()
+    )
+    active_run = (
+        db.query(models.SimulationRun)
+        .filter(models.SimulationRun.status == "running")
+        .first()
+    )
     return templates.TemplateResponse(
         "admin_welcome.html",
-        {"request": request, "admin": admin, "reset_status": reset_status},
+        {
+            "request": request,
+            "admin": admin,
+            "reset_status": reset_status,
+            "simulation_state": {
+                "latest": latest_run,
+                "active": active_run,
+                "status": sim_status,
+            },
+        },
     )
 
 
@@ -745,6 +821,29 @@ def login_page(request: Request, db: Session = Depends(get_db)):
     if security.get_admin_from_request(request, db):
         return RedirectResponse(url="/admin/orders", status_code=303)
     return templates.TemplateResponse("login.html", {"request": request, "error": None})
+
+
+@app.post("/admin/simulator/start")
+def start_admin_simulation(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    admin = security.get_admin_from_request(request, db)
+    if not admin:
+        return RedirectResponse(url="/admin/login", status_code=303)
+
+    running = (
+        db.query(models.SimulationRun)
+        .filter(models.SimulationRun.status == "running")
+        .first()
+    )
+    if running:
+        return RedirectResponse(url="/admin/?sim=running", status_code=303)
+
+    payload = simulator.SimulationRequest(label="admin-panel-run")
+    background_tasks.add_task(simulator._run_simulation, payload)
+    return RedirectResponse(url="/admin/?sim=started", status_code=303)
 
 
 @app.post("/admin/login")

@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal
+import random
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
-from . import models
+from . import models, inventory_ml
 
 
 TEST_SLA_MINUTES = 2
@@ -133,7 +134,7 @@ def consume_stock_for_order(db: Session, order: models.Order, *, location_id: in
             )
 
 
-def ensure_replenishment_alerts(db: Session) -> bool:
+def ensure_replenishment_alerts(db: Session, simulation_run_id: int | None = None) -> bool:
     """Insert SupplyOrder rows whenever stock drops below the reorder point."""
     default_loc = _get_default_location_id(db)
     created = False
@@ -208,6 +209,15 @@ def ensure_replenishment_alerts(db: Session) -> bool:
             alert_triggered_at=now,
         )
         db.add(order)
+        db.flush([order])
+        inventory_ml.record_training_snapshot(
+            db,
+            item=item,
+            supply_order=order,
+            qty_on_hand=float(qty_on_hand),
+            suggested_qty=float(suggested_qty),
+            simulation_run_id=simulation_run_id,
+        )
         created = True
 
     if created:
@@ -256,6 +266,8 @@ def finalize_processed_supply_orders(db: Session) -> bool:
             created_by="auto-restock",
         )
         order.state = "fulfilled"
+        order.fulfilled_at = now
+        inventory_ml.mark_supply_order_outcome(db, order)
         changed = True
 
     if changed:
@@ -273,3 +285,34 @@ def acknowledge_supply_order(db: Session, order_id: int) -> models.SupplyOrder |
         order.acknowledged_at = datetime.utcnow()
         order.sla_hours = resolve_sla_hours(order.sla_hours, order.supplier)
     return order
+
+
+def auto_acknowledge_supply_orders(
+    db: Session,
+    *,
+    jitter_range: tuple[float, float] = (0.85, 1.25),
+) -> bool:
+    """Automatically acknowledge supply orders to keep the simulator flowing."""
+
+    pending = (
+        db.query(models.SupplyOrder)
+        .filter(models.SupplyOrder.state == "alert")
+        .all()
+    )
+    changed = False
+    if not pending:
+        return changed
+
+    low, high = jitter_range
+    for order in pending:
+        acked = acknowledge_supply_order(db, order.id)
+        if not acked:
+            continue
+        if acked.sla_hours:
+            factor = Decimal(str(random.uniform(low, high)))
+            acked.sla_hours = Decimal(acked.sla_hours) * factor
+        changed = True
+
+    if changed:
+        db.flush()
+    return changed

@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.schema import UniqueConstraint
 
@@ -125,6 +125,9 @@ class InventoryItem(Base):
     reorder_point = Column(Numeric(12, 3), nullable=True)
     starting_stock_qty = Column(Numeric(12, 3), nullable=True)
     alert_threshold_qty = Column(Numeric(12, 3), nullable=True)
+    storage_capacity_qty = Column(Numeric(12, 3), nullable=True)
+    holding_cost_per_unit = Column(Numeric(12, 2), nullable=True)
+    stockout_cost_per_unit = Column(Numeric(12, 2), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
@@ -206,6 +209,7 @@ class SupplierProduct(Base):
     price_per_unit = Column(Numeric(12, 2), nullable=True)
     unit = Column(String(16), nullable=True)
     min_qty = Column(Numeric(12, 3), nullable=True)
+    discount_pct = Column(Numeric(5, 2), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     supplier = relationship("Supplier", back_populates="products")
@@ -231,9 +235,43 @@ class SupplyOrder(Base):
     alert_triggered_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     acknowledged_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    fulfilled_at = Column(DateTime, nullable=True)
 
     inventory_item = relationship("InventoryItem")
     supplier = relationship("Supplier")
+
+
+class SimulationRun(Base):
+    __tablename__ = "simulation_runs"
+
+    id = Column(Integer, primary_key=True)
+    label = Column(String(120), nullable=True)
+    status = Column(String(24), nullable=False, default="running")
+    runtime_minutes = Column(Integer, nullable=False, default=30)
+    orders_created = Column(Integer, nullable=False, default=0)
+    orders_closed = Column(Integer, nullable=False, default=0)
+    notes = Column(String(255), nullable=True)
+    started_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    ended_at = Column(DateTime, nullable=True)
+
+    training_logs = relationship("InventoryPolicyTrainingLog", back_populates="simulation_run", cascade="all, delete-orphan")
+
+
+class InventoryPolicyTrainingLog(Base):
+    __tablename__ = "inventory_policy_training_logs"
+
+    id = Column(Integer, primary_key=True)
+    item_id = Column(Integer, ForeignKey("inventory_items.id", ondelete="SET NULL"), nullable=True)
+    supply_order_id = Column(Integer, ForeignKey("supply_orders.id", ondelete="SET NULL"), nullable=True)
+    simulation_run_id = Column(Integer, ForeignKey("simulation_runs.id", ondelete="SET NULL"), nullable=True)
+    context_features = Column(JSON, nullable=False)
+    decision_snapshot = Column(JSON, nullable=False)
+    outcome_snapshot = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    item = relationship("InventoryItem")
+    supply_order = relationship("SupplyOrder")
+    simulation_run = relationship("SimulationRun", back_populates="training_logs")
 
 
 # =====================

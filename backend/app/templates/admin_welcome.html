@@ -51,6 +51,11 @@
         color: #1b5e20;
         border: 1px solid rgba(76, 175, 80, 0.25);
       }
+      .flash.info {
+        background: rgba(33, 150, 243, 0.12);
+        color: #0d47a1;
+        border: 1px solid rgba(33, 150, 243, 0.25);
+      }
 
       /* Radial Admin Menu */
       .admin-menu { position: fixed; right: 24px; bottom: 24px; z-index: 1000; }
@@ -76,6 +81,11 @@
       {% if reset_status == "success" %}
         <div class="flash success">Dati ripristinati allo stato iniziale.</div>
       {% endif %}
+      {% if simulation_state.status == "started" %}
+        <div class="flash success">Simulazione inventory avviata.</div>
+      {% elif simulation_state.status == "running" %}
+        <div class="flash info">È già in esecuzione una simulazione.</div>
+      {% endif %}
       {% if admin %}
         <p class="muted">Benvenuto, <strong>{{ admin.username }}</strong>.</p>
         <div class="actions">
@@ -95,6 +105,24 @@
           <form method="post" action="/admin/test/reset-demo-data" onsubmit="return confirm('Questa azione cancella utenti, ordini e livelli di magazzino. Continuare?')">
             <button class="button" type="submit" style="background:linear-gradient(135deg,#d32f2f,#b71c1c)">Reset dati demo</button>
           </form>
+        </div>
+        <div style="margin-top:1rem; padding:1rem; border-radius:12px; background:rgba(62,39,35,0.05);">
+          <div style="display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center; justify-content:center;">
+            <form method="post" action="/admin/simulator/start">
+              <button class="button" type="submit" {% if simulation_state.active %}disabled style="background:#bbb; cursor:not-allowed"{% endif %}>
+                Avvia simulazione ML (30 min)
+              </button>
+            </form>
+            {% if simulation_state.latest %}
+              <p class="muted" style="margin:0;">
+                Ultima simulazione: <strong>{{ simulation_state.latest.status }}</strong>
+                (ordini: {{ simulation_state.latest.orders_closed or 0 }}/{{ simulation_state.latest.orders_created or 0 }})
+                il {{ simulation_state.latest.started_at.strftime('%d/%m %H:%M') if simulation_state.latest.started_at else '—' }}
+              </p>
+            {% else %}
+              <p class="muted" style="margin:0;">Nessuna simulazione eseguita finora.</p>
+            {% endif %}
+          </div>
         </div>
       {% else %}
         <p>Benvenuto nell'area riservata allo staff.</p>

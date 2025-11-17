@@ -1,0 +1,84 @@
+############## WHAT THE MODEL SHOULD DECIDE #######################################àà
+
+Don't want the model to decide everything at once, just a few numbers for the logic already existing
+
+    - Reorder Point --> Stock Level to trigger a new Supply Order
+    - Order Quantity --> How much to order when reordering
+    
+    - CURRENT
+        - Thresholds Constants
+    
+############### DATA & FEATURES ###################################################àà
+
+    - DEMAND / CONSUMPTION
+        - Daily / Weekly Sales per Item (7 / 30 / 90 days)
+        - Demand Seasonality --> Special Events / Holidays / Day-of-Week / Month
+        - Recent Trend --> Moving Averages / Growth & Decline Rate
+    
+    - SUPPLIER BEHAVIOUR
+        - Historical Delivery Times
+        - Fill Rate
+        - Discount Schedule
+    
+    - CUSTOMER PREFERENCES
+        - Popularity Scores
+        - Elasticity --> How demand changes under promotions/price changes
+        - Substitutability --> Items customers switch between
+    
+    - OPERATIONAL CONSTRAINTS
+        - Storage Limits (MAX Units to store)
+        - Pre-Order Cost / Holding Cost / Stockout Cost
+    
+    - PREDICTIONS
+        - Demand Distribution over the Time
+        - Optimal Reorder Point & Order Quantity SUggested
+
+############ MODEL OPTIONS ##################################################àà
+
+    - PHASE 1 - Demand Forecasting + Formula
+        - Regression Model to Forecast Demand during lead time
+        - XGBoost / LightGBM / Linear Regression
+
+        - For each SKU
+            - Predict Mean Demand and uncertainity (Residuals / Quantile Regression)
+            - Compute Reoder Point for a service level
+            - Compute Order Quantity with EOQ-Style formula or Heuristic
+    
+    - PHASE 2 - Direct Policy Model
+        - A model that outputs Reorder Point & Order Quantity directly given the Features
+        - Cost-Based Labels
+        - Simulate different thresholds on historical timelines and label which threshold profile  yields lowest Cost
+    
+    - PHASE 3 - Reinforcement Learning
+        - Environment
+            - Inventory State / Supplier Discounts / Time to Delivery
+        
+        - Action
+            - When & How much to order
+        
+        - Reward
+            - Negative of costs (Holding + Stockout + Missed Discounts)
+        
+        - Needs a good simulator & Good data
+
+############### BACKEND ARCHITECTURE #########################################ààà
+
+    - Separate Component / Service for Thresholds
+    
+    - Offline Training Pipeline
+        - Batch Job that:
+            - Pulls Historical Sales + Supplier Data from the DB
+            - Trains / Updates the Model
+            - Serializes the Model or stores learned parameters
+    
+    - Online Inference
+        - At Reorder Decision Time:
+            - Load Latest Model
+            - Build Feature Vectors for each item
+            - Get Reorder Point & Order Quantity
+            - Applies Guardrails (min/max / Storage Limits / Manual Overrides)
+    
+    - Logging & Monitoring
+        - Log each model recommendation + Actual Outcome
+            - Features / Thresholds Chosen / Stockouts / Wastage / Costs
+
