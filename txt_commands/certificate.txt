@@ -45,3 +45,11 @@ kubectl -n qr rollout restart deployment/qr-app-backend && kubectl -n qr rollout
 
 gh run list -w "Build and Publish Docker Images" -b inventory -L 1 --json headSha | jq -r '.[0].headSha[0:7]'
     --> Get the latest SHA tag of the last built image
+
+CHECK DEPLOYMENT IMAGES
+
+microk8s kubectl -n qr get deploy qr-app-backend \
+  -o jsonpath='{.spec.template.spec.containers[0].image}'
+
+microk8s kubectl -n qr get deploy qr-app-frontend \
+  -o jsonpath='{.spec.template.spec.containers[0].image}'

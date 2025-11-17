@@ -136,8 +136,10 @@
           </form>
         </div>
         <div style="margin-top:1rem; padding:1rem; border-radius:12px; background:rgba(62,39,35,0.05);">
-          <p class="muted" style="margin:0 0 0.75rem;">Accedi per avviare la simulazione inventario.</p>
-          <button class="button" type="button" disabled style="background:#bbb; cursor:not-allowed;">Avvia simulazione ML (30 min)</button>
+          <form method="post" action="/admin/simulator/start">
+            <button class="button" type="submit" disabled style="background:#b94b4b; cursor:not-allowed;">Avvia simulazione ML (30 min)</button>
+          </form>
+          <p class="muted" style="margin:0.75rem 0 0;">Accedi per avviare la simulazione inventario.</p>
         </div>
       {% endif %}
     </div>
