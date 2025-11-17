@@ -348,4 +348,3 @@ def mark_supply_order_outcome(db: Session, supply_order: models.SupplyOrder) -> 
         "late": sla_hours > 0 and wait_hours > sla_hours,
         "qty_received": _safe_float(supply_order.suggested_qty),
     }
-*** End ***
