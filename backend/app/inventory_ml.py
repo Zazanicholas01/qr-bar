@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from . import models
+
+DEBUG_LOG_PATH = Path(__file__).resolve().parents[2] / "inventory_policy_debug.jsonl"
 
 
 def _safe_float(value: Decimal | float | None) -> float:
@@ -332,6 +336,19 @@ def record_training_snapshot(
         )
     else:
         decision_snapshot.setdefault("unit", item.unit)
+    payload = {
+        "item_id": item.id,
+        "supply_order_id": supply_order.id if supply_order else None,
+        "simulation_run_id": simulation_run_id,
+        "context_features": context,
+        "decision_snapshot": decision_snapshot,
+    }
+    try:
+        DEBUG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with DEBUG_LOG_PATH.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(payload, default=str) + "\n")
+    except Exception:
+        pass
     log = models.InventoryPolicyTrainingLog(
         item_id=item.id,
         supply_order_id=supply_order.id if supply_order else None,
