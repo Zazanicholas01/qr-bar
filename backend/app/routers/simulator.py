@@ -60,12 +60,12 @@ class SimulationRequest(BaseModel):
         description="Maximum minutes before an order moves from pending to processed.",
     )
     checkout_delay_min_minutes: float = Field(
-        default=5.0,
+        default=3.0,
         ge=0.5,
         description="Minimum minutes between processing and checkout.",
     )
     checkout_delay_max_minutes: float = Field(
-        default=20.0,
+        default=5.0,
         ge=0.5,
         description="Maximum minutes between processing and checkout.",
     )
@@ -198,6 +198,40 @@ def _checkout_order(order_id: int, run_id: int | None) -> None:
             )
 
         inventory_svc.consume_stock_for_order(session, order, created_by="simulator")
+        movements = (
+            session.query(models.StockMovement)
+            .filter(
+                models.StockMovement.ref_type == "order",
+                models.StockMovement.ref_id == order.id,
+                models.StockMovement.reason == "sale",
+            )
+            .all()
+        )
+        consumption_map: dict[int, float] = {}
+        for movement in movements:
+            if not movement.item_id:
+                continue
+            consumption_map[movement.item_id] = consumption_map.get(movement.item_id, 0.0) + abs(
+                float(movement.qty_delta or 0)
+            )
+        for item_id, consumed_qty in consumption_map.items():
+            item = (
+                session.query(models.InventoryItem)
+                .filter(models.InventoryItem.id == item_id)
+                .first()
+            )
+            if not item:
+                continue
+            inventory_ml.record_training_snapshot(
+                session,
+                item=item,
+                supply_order=None,
+                qty_on_hand=None,
+                suggested_qty=consumed_qty,
+                simulation_run_id=run_id,
+                event="checkout",
+                metadata={"order_id": order.id},
+            )
         restocked = inventory_svc.finalize_processed_supply_orders(session)
         alerts_created = inventory_svc.ensure_replenishment_alerts(session, simulation_run_id=run_id)
         acknowledged = inventory_svc.auto_acknowledge_supply_orders(session)

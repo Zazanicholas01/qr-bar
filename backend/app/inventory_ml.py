@@ -300,29 +300,41 @@ def record_training_snapshot(
     db: Session,
     *,
     item: models.InventoryItem,
-    supply_order: models.SupplyOrder,
-    qty_on_hand: float,
-    suggested_qty: float,
-    simulation_run_id: int | None,
+    supply_order: models.SupplyOrder | None = None,
+    qty_on_hand: float | None = None,
+    suggested_qty: float | None = None,
+    simulation_run_id: int | None = None,
+    event: str = "supply_alert",
+    metadata: dict[str, Any] | None = None,
 ) -> None:
-    context = build_feature_snapshot(db, item, qty_on_hand=qty_on_hand)
+    qoh = qty_on_hand if qty_on_hand is not None else _qty_on_hand(db, item.id)
+    context = build_feature_snapshot(db, item, qty_on_hand=qoh)
     demand_metrics = context.get("demand", {})
-    decision_snapshot = {
-        "event": "supply_alert",
-        "qty_on_hand": qty_on_hand,
+    decision_snapshot: dict[str, Any] = {
+        "event": event,
+        "qty_on_hand": qoh,
         "suggested_qty": suggested_qty,
-        "unit": supply_order.unit,
-        "state": supply_order.state,
+        "simulation_run_id": simulation_run_id,
         "recent_sales_7d": demand_metrics.get("sales_last_7d"),
         "avg_daily_consumption": demand_metrics.get("avg_daily_consumption"),
-        "simulation_run_id": simulation_run_id,
-        "supply_order_created_at": supply_order.alert_triggered_at.isoformat()
-        if supply_order.alert_triggered_at
-        else None,
     }
+    if metadata:
+        decision_snapshot.update(metadata)
+    if supply_order:
+        decision_snapshot.update(
+            {
+                "unit": supply_order.unit,
+                "state": supply_order.state,
+                "supply_order_created_at": supply_order.alert_triggered_at.isoformat()
+                if supply_order.alert_triggered_at
+                else None,
+            }
+        )
+    else:
+        decision_snapshot.setdefault("unit", item.unit)
     log = models.InventoryPolicyTrainingLog(
         item_id=item.id,
-        supply_order_id=supply_order.id,
+        supply_order_id=supply_order.id if supply_order else None,
         simulation_run_id=simulation_run_id,
         context_features=context,
         decision_snapshot=decision_snapshot,
