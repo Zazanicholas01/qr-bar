@@ -17,7 +17,9 @@ helm upgrade --install qr-app charts/qr-app -n qr -f charts/qr-app/values.yaml \
 
 kubectl -n qr rollout restart deployment/qr-app-backend && kubectl -n qr rollout restart deployment/qr-app-frontend
 
-./scripts/deploy_latest_inventory.sh --> Bash script
+DEPLOY BASH SCRIPT
+
+./scripts/deploy_latest_inventory.sh
 
 ############# USEFUL COMMANDS ########################################################
 

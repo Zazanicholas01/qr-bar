@@ -167,8 +167,9 @@ def build_feature_snapshot(
     item: models.InventoryItem,
     *,
     qty_on_hand: float | None = None,
+    as_of: datetime | None = None,
 ) -> dict[str, Any]:
-    now = datetime.utcnow()
+    now = as_of or datetime.utcnow()
     qoh = qty_on_hand if qty_on_hand is not None else _qty_on_hand(db, item.id)
     sales_7d = _sum_sales_between(db, item.id, start=now - timedelta(days=7))
     sales_30d = _sum_sales_between(db, item.id, start=now - timedelta(days=30))
@@ -242,6 +243,15 @@ def build_feature_snapshot(
         "popularity_score": popularity,
     }
 
+    pending_supply_orders = (
+        db.query(func.count(models.SupplyOrder.id))
+        .filter(
+            models.SupplyOrder.inventory_item_id == item.id,
+            models.SupplyOrder.state.in_(["alert", "processed"]),
+        )
+        .scalar()
+    ) or 0
+
     supplier_features = {
         "lead_time_hours": _safe_float(supplier_lead),
         "lead_time_avg_hours": avg_lead_hours,
@@ -261,13 +271,8 @@ def build_feature_snapshot(
 
     operations_features = {
         "qty_on_hand": qoh,
-        "par_level": _safe_float(item.par_level),
-        "reorder_point": _safe_float(item.reorder_point),
-        "storage_capacity_qty": _safe_float(item.storage_capacity_qty or item.par_level),
-        "holding_cost_per_unit": _safe_float(item.holding_cost_per_unit),
-        "stockout_cost_per_unit": _safe_float(item.stockout_cost_per_unit),
-        "alert_threshold_qty": _safe_float(item.alert_threshold_qty),
-        "starting_stock_qty": _safe_float(item.starting_stock_qty),
+        "open_supply_orders": int(pending_supply_orders),
+        "on_order_qty": supplier_features["on_order_qty"],
     }
 
     temporal_features = {
@@ -301,14 +306,15 @@ def record_training_snapshot(
     simulation_run_id: int | None,
 ) -> None:
     context = build_feature_snapshot(db, item, qty_on_hand=qty_on_hand)
+    demand_metrics = context.get("demand", {})
     decision_snapshot = {
+        "event": "supply_alert",
         "qty_on_hand": qty_on_hand,
-        "reorder_point": _safe_float(item.reorder_point),
-        "par_level": _safe_float(item.par_level),
-        "alert_threshold_qty": _safe_float(item.alert_threshold_qty),
         "suggested_qty": suggested_qty,
         "unit": supply_order.unit,
         "state": supply_order.state,
+        "recent_sales_7d": demand_metrics.get("sales_last_7d"),
+        "avg_daily_consumption": demand_metrics.get("avg_daily_consumption"),
         "simulation_run_id": simulation_run_id,
         "supply_order_created_at": supply_order.alert_triggered_at.isoformat()
         if supply_order.alert_triggered_at
@@ -348,3 +354,52 @@ def mark_supply_order_outcome(db: Session, supply_order: models.SupplyOrder) -> 
         "late": sla_hours > 0 and wait_hours > sla_hours,
         "qty_received": _safe_float(supply_order.suggested_qty),
     }
+
+
+def record_simulation_run_snapshots(
+    db: Session, *, simulation_run: models.SimulationRun
+) -> None:
+    """Persist a snapshot for every inventory item at the end of a simulation run."""
+
+    start = simulation_run.started_at or datetime.utcnow()
+    end = simulation_run.ended_at or datetime.utcnow()
+    items = db.query(models.InventoryItem).all()
+
+    for item in items:
+        qty_on_hand = _qty_on_hand(db, item.id)
+        context = build_feature_snapshot(db, item, qty_on_hand=qty_on_hand, as_of=end)
+        sales_in_run = _sum_sales_between(db, item.id, start=start, end=end)
+        open_supply_orders = (
+            db.query(func.count(models.SupplyOrder.id))
+            .filter(
+                models.SupplyOrder.inventory_item_id == item.id,
+                models.SupplyOrder.state.in_(["alert", "processed"]),
+            )
+            .scalar()
+        ) or 0
+
+        decision_snapshot = {
+            "event": "simulation_summary",
+            "simulation_run_id": simulation_run.id,
+            "run_started_at": start.isoformat() if start else None,
+            "run_ended_at": end.isoformat() if end else None,
+            "sales_in_run": sales_in_run,
+            "orders_created_in_run": simulation_run.orders_created,
+            "orders_closed_in_run": simulation_run.orders_closed,
+        }
+
+        outcome_snapshot = {
+            "stock_movement_in_run": sales_in_run,
+            "open_supply_orders": int(open_supply_orders),
+            "qty_on_hand_end_of_run": qty_on_hand,
+        }
+
+        log = models.InventoryPolicyTrainingLog(
+            item_id=item.id,
+            supply_order_id=None,
+            simulation_run_id=simulation_run.id,
+            context_features=context,
+            decision_snapshot=decision_snapshot,
+            outcome_snapshot=outcome_snapshot,
+        )
+        db.add(log)

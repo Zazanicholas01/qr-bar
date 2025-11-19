@@ -1,0 +1,10 @@
+
+1 - LightGBM / XGBoost (Gradient-Boosted Decision Trees)
+
+    - Regress optimal reorder quantities from the logged features
+
+2 - Temporal Fusion Transformer / DeepAR (Seq-to-seq Demand Forecasters)
+
+    - Model Consumption & Lead-Time Trajectories
+
+3 - Conservative Q-Learning (Offline RL Policy)

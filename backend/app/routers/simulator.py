@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field, validator
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app import inventory as inventory_svc, models, security
+from app import inventory as inventory_svc, inventory_ml, models, security
 from app.database import SessionLocal, get_db
 from app.routers.menu import CATEGORIES
 
@@ -264,6 +264,10 @@ def _run_simulation(params: SimulationRequest) -> None:
 
         simulation_run.status = "completed"
         simulation_run.ended_at = datetime.utcnow()
+        session.commit()
+
+        session.expire_all()
+        inventory_ml.record_simulation_run_snapshots(session, simulation_run=simulation_run)
         session.commit()
     finally:
         session.close()
