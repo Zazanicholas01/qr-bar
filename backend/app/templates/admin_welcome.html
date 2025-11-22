@@ -109,7 +109,7 @@
         <div style="margin-top:1rem; padding:1rem; border-radius:12px; background:rgba(62,39,35,0.05);">
           <div style="display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center; justify-content:center;">
             <form method="post" action="/admin/simulator/start">
-              <button class="button" type="submit" {% if simulation_state.active %}disabled style="background:#bbb; cursor:not-allowed"{% endif %}>
+              <button class="button" type="submit" {% if simulation_state.is_running %}disabled style="background:#bbb; cursor:not-allowed"{% endif %}>
                 Avvia simulazione ML (60 min)
               </button>
             </form>

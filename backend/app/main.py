@@ -810,6 +810,7 @@ def admin_welcome(request: Request, db: Session = Depends(get_db)):
             "simulation_state": {
                 "latest": latest_run,
                 "active": active_run,
+                "is_running": bool(active_run),
                 "status": sim_status,
             },
         },
