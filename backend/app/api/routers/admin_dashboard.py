@@ -55,7 +55,7 @@ def list_closed_orders(
         start = start_of_day
         end = start + timedelta(days=1)
 
-    orders = reporting.list_closed_orders(db, start=start, end=end)
+    orders = reporting_dashboard.list_closed_orders(db, start=start, end=end)
     selected_day = start.strftime("%Y-%m-%d")
 
     return templates.TemplateResponse(

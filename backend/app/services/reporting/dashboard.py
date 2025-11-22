@@ -11,7 +11,7 @@ from app.schemas.dashboard import (
 )
 
 from sqlalchemy import text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app import models
 
@@ -133,4 +133,20 @@ def get_dashboard_summary(db: Session) -> DashboardSummary:
         payments=payments,
         heatmaps=heatmaps,
         generated_at=datetime.utcnow().isoformat(),
+    )
+
+
+def list_closed_orders(db: Session, start: datetime, end: datetime):
+    """Return closed orders in the provided window with related details."""
+    return (
+        db.query(models.Order)
+        .options(
+            joinedload(models.Order.items),
+            joinedload(models.Order.transaction),
+            joinedload(models.Order.table),
+        )
+        .filter(models.Order.status == "closed")
+        .filter(models.Order.created_at >= start, models.Order.created_at < end)
+        .order_by(models.Order.created_at.desc())
+        .all()
     )
