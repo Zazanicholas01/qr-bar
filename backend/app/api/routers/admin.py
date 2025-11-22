@@ -6,17 +6,18 @@ from sqlalchemy.orm import Session
 
 from app import models, security, inventory as inventory_svc
 from app.database import get_db, get_engine
-from app.routers import simulator
-from sqlalchemy import text
+from app.api.routers import simulator
 from app.core.constants import PAYMENT_METHODS
+from app.api import deps
+from app.services import orders as orders_service
+from app.services import reset as reset_service
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
 
 @router.get("/admin/", response_class=HTMLResponse)
-def admin_welcome(request: Request, db: Session = Depends(get_db)):
-    admin = security.get_admin_from_request(request, db)
+def admin_welcome(request: Request, db: Session = Depends(get_db), admin: models.StaffUser = Depends(deps.require_admin)):
     reset_status = request.query_params.get("reset")
     sim_status = request.query_params.get("sim")
     latest_run = db.query(models.SimulationRun).order_by(models.SimulationRun.started_at.desc()).first()
@@ -76,10 +77,8 @@ def start_admin_simulation(
     request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    admin: models.StaffUser = Depends(deps.require_admin),
 ):
-    admin = security.get_admin_from_request(request, db)
-    if not admin:
-        return RedirectResponse(url="/admin/login", status_code=303)
 
     running = db.query(models.SimulationRun).filter(models.SimulationRun.status == "running").first()
     if running:
@@ -94,10 +93,8 @@ def start_admin_simulation(
 def stop_admin_simulation(
     request: Request,
     db: Session = Depends(get_db),
+    admin: models.StaffUser = Depends(deps.require_admin),
 ):
-    admin = security.get_admin_from_request(request, db)
-    if not admin:
-        return RedirectResponse(url="/admin/login", status_code=303)
 
     running = db.query(models.SimulationRun).filter(models.SimulationRun.status == "running").first()
     if not running:
@@ -111,9 +108,7 @@ def stop_admin_simulation(
 
 
 @router.get("/admin/orders", response_class=HTMLResponse)
-def list_orders_admin(request: Request, db: Session = Depends(get_db)):
-    if not security.get_admin_from_request(request, db):
-        return RedirectResponse(url="/admin/login", status_code=303)
+def list_orders_admin(request: Request, db: Session = Depends(get_db), admin: models.StaffUser = Depends(deps.require_admin)):
 
     orders = (
         db.query(models.Order)
@@ -137,16 +132,13 @@ def delete_order_admin(
     order_id: int,
     request: Request,
     db: Session = Depends(get_db),
+    admin: models.StaffUser = Depends(deps.require_admin),
 ):
-    if not security.get_admin_from_request(request, db):
-        return RedirectResponse(url="/admin/login", status_code=303)
-
-    order = db.query(models.Order).filter(models.Order.id == order_id).first()
-    if order is None:
+    try:
+        orders_service.delete_order(db, order_id)
+        db.commit()
+    except LookupError:
         raise HTTPException(status_code=404, detail="Order not found")
-
-    db.delete(order)
-    db.commit()
     return RedirectResponse(url="/admin/orders", status_code=303)
 
 
@@ -155,16 +147,13 @@ def mark_order_processed(
     order_id: int,
     request: Request,
     db: Session = Depends(get_db),
+    admin: models.StaffUser = Depends(deps.require_admin),
 ):
-    if not security.get_admin_from_request(request, db):
-        return RedirectResponse(url="/admin/login", status_code=303)
-
-    order = db.query(models.Order).filter(models.Order.id == order_id).first()
-    if order is None:
+    try:
+        orders_service.process_order(db, order_id)
+        db.commit()
+    except LookupError:
         raise HTTPException(status_code=404, detail="Order not found")
-
-    order.status = "processed"
-    db.commit()
     return RedirectResponse(url="/admin/orders", status_code=303)
 
 
@@ -174,38 +163,23 @@ def mark_order_checkout(
     request: Request,
     payment_method: str = Form(...),
     db: Session = Depends(get_db),
+    admin: models.StaffUser = Depends(deps.require_admin),
 ):
     try:
-        if not security.get_admin_from_request(request, db):
-            return RedirectResponse(url="/admin/login", status_code=303)
-
-        order = db.query(models.Order).filter(models.Order.id == order_id).first()
-        if order is None:
-            raise HTTPException(status_code=404, detail="Order not found")
-
-        method = payment_method.strip().lower()
-        if method not in PAYMENT_METHODS:
-            raise HTTPException(status_code=400, detail="Unsupported payment method")
-
-        order.status = "closed"
-        if order.transaction:
-            order.transaction.method = method
-            order.transaction.amount = order.total_amount
-            order.transaction.created_at = datetime.utcnow()
-        else:
-            transaction = models.Transaction(
-                order=order,
-                method=method,
-                amount=order.total_amount,
-            )
-            db.add(transaction)
-
-        try:
-            inventory_svc.consume_stock_for_order(db, order, created_by="checkout")
-        except Exception:
-            pass
-
+        orders_service.checkout_order(
+            db,
+            order_id,
+            payment_method,
+            consume_inventory=True,
+            created_by="checkout",
+        )
         db.commit()
+    except LookupError:
+        db.rollback()
+        raise HTTPException(status_code=404, detail="Order not found")
+    except ValueError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Unsupported payment method")
     except Exception:
         db.rollback()
         return RedirectResponse(url="/admin/orders", status_code=303)
@@ -214,7 +188,7 @@ def mark_order_checkout(
 
 
 @router.post("/admin/test/reset-user-session")
-def reset_user_session_from_admin(request: Request, db: Session = Depends(get_db)):
+def reset_user_session_from_admin(request: Request, db: Session = Depends(get_db), admin: models.StaffUser = Depends(deps.require_admin)):
     response = RedirectResponse(url="/admin/", status_code=303)
     try:
         security.clear_user_session(response, request, db)
@@ -224,7 +198,7 @@ def reset_user_session_from_admin(request: Request, db: Session = Depends(get_db
 
 
 @router.post("/admin/test/reset-all-cookies")
-def reset_all_cookies_from_admin(request: Request, db: Session = Depends(get_db)):
+def reset_all_cookies_from_admin(request: Request, db: Session = Depends(get_db), admin: models.StaffUser = Depends(deps.require_admin)):
     response = RedirectResponse(url="/admin/", status_code=303)
     try:
         security.clear_user_session(response, request, db)
@@ -238,7 +212,7 @@ def reset_all_cookies_from_admin(request: Request, db: Session = Depends(get_db)
 
 
 @router.post("/admin/test/revoke-all-user-sessions")
-def revoke_all_user_sessions(request: Request, db: Session = Depends(get_db)):
+def revoke_all_user_sessions(request: Request, db: Session = Depends(get_db), admin: models.StaffUser = Depends(deps.require_admin)):
     response = RedirectResponse(url="/admin/", status_code=303)
     try:
         db.query(models.AuthSession).delete()
@@ -249,32 +223,14 @@ def revoke_all_user_sessions(request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/admin/test/reset-demo-data")
-def reset_demo_data(request: Request, db: Session = Depends(get_db)):
-    admin = security.get_admin_from_request(request, db)
-    if not admin:
-        return RedirectResponse(url="/admin/login", status_code=303)
+def reset_demo_data(
+    request: Request,
+    db: Session = Depends(get_db),
+    admin: models.StaffUser = Depends(deps.require_admin),
+):
 
     engine = get_engine()
     with engine.begin() as connection:
-        connection.execute(
-            text(
-                "TRUNCATE TABLE order_items, transactions, orders, email_tokens, auth_sessions, users "
-                "RESTART IDENTITY CASCADE"
-            )
-        )
-        connection.execute(
-            text("DELETE FROM stock_movements WHERE COALESCE(ref_type, '') <> 'seed'")
-        )
-        connection.execute(
-            text(
-                "UPDATE stock_levels AS sl "
-                "SET qty_on_hand_cached = COALESCE(( "
-                "  SELECT SUM(qty_delta) "
-                "  FROM stock_movements sm "
-                "  WHERE sm.item_id = sl.item_id AND sm.location_id = sl.location_id AND sm.ref_type = 'seed' "
-                "), 0), "
-                "updated_at = NOW()"
-            )
-        )
+        reset_service.reset_demo_data(connection)
 
     return RedirectResponse(url="/admin/?reset=success", status_code=303)

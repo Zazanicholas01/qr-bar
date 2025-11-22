@@ -1,24 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app import models, inventory as inventory_svc, security
+from app import models, inventory as inventory_svc
 from app.database import get_db
+from app.api import deps
+from app.schemas.inventory import InventoryAdjust, InventoryLevel, InventoryAdjustResponse
 
 router = APIRouter(prefix="/api/inventory", tags=["Inventory"])
 
 
-class InventoryAdjust(BaseModel):
-    item_sku: str
-    qty_delta: float
-    unit: str = "pcs"
-    reason: str = "adjust"
-
-
-@router.get("/levels")
+@router.get("/levels", response_model=list[InventoryLevel])
 def get_inventory_levels(
     db: Session = Depends(get_db),
-    admin: models.StaffUser = Depends(security.require_admin_api),
+    admin: models.StaffUser = Depends(deps.require_admin),
 ):
     rows = (
         db.query(models.StockLevel, models.InventoryItem)
@@ -36,11 +30,11 @@ def get_inventory_levels(
     ]
 
 
-@router.post("/adjust")
+@router.post("/adjust", response_model=InventoryAdjustResponse)
 def adjust_inventory(
     payload: InventoryAdjust,
     db: Session = Depends(get_db),
-    admin: models.StaffUser = Depends(security.require_admin_api),
+    admin: models.StaffUser = Depends(deps.require_admin),
 ):
     item = db.query(models.InventoryItem).filter(models.InventoryItem.sku == payload.item_sku).first()
     if not item:
@@ -57,4 +51,4 @@ def adjust_inventory(
         created_by="api",
     )
     db.commit()
-    return {"ok": True}
+    return InventoryAdjustResponse(ok=True)

@@ -1,4 +1,3 @@
-import os
 from datetime import datetime, timedelta
 from decimal import Decimal
 
@@ -6,6 +5,7 @@ from sqlalchemy import text
 
 from app import security
 from app.database import Base, get_engine
+from app.core import config
 
 
 def _column_exists(connection, table: str, column: str) -> bool:
@@ -21,8 +21,8 @@ def _column_exists(connection, table: str, column: str) -> bool:
 
 def _bootstrap_admin() -> None:
     """Create an admin user if ADMIN_USERNAME/ADMIN_PASSWORD are provided."""
-    username = os.environ.get("ADMIN_USERNAME")
-    password = os.environ.get("ADMIN_PASSWORD")
+    username = config.ADMIN_USERNAME
+    password = config.ADMIN_PASSWORD
     if not username or not password:
         return
 

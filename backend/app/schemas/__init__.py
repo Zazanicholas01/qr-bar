@@ -9,6 +9,8 @@ from .orders import (
     OrderRead,
     OrderStatusUpdate,
 )
+from .inventory import InventoryAdjust
+from .inventory import InventoryLevel, InventoryAdjustResponse
 
 __all__ = [
     "DECIMAL_ENCODERS",
@@ -22,4 +24,7 @@ __all__ = [
     "TransactionRead",
     "OrderRead",
     "OrderStatusUpdate",
+    "InventoryAdjust",
+    "InventoryLevel",
+    "InventoryAdjustResponse",
 ]

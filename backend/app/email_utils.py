@@ -1,16 +1,17 @@
-import os
 import smtplib
 from email.message import EmailMessage
 
+from app.core import config
+
 
 def send_email(to_address: str, subject: str, body: str) -> bool:
-    host = os.environ.get("SMTP_HOST") or os.environ.get("SMTP_DEFAULT_HOST")
-    port = int(os.environ.get("SMTP_PORT") or os.environ.get("SMTP_DEFAULT_PORT", "587"))
-    username = os.environ.get("SMTP_USERNAME")
-    password = os.environ.get("SMTP_PASSWORD")
-    sender = os.environ.get("SMTP_FROM", username or "noreply@example.com")
+    host = config.SMTP_HOST
+    port = config.SMTP_PORT
+    username = config.SMTP_USERNAME
+    password = config.SMTP_PASSWORD
+    sender = config.SMTP_FROM
 
-    if not host:
+    if not host or not username or not password:
         # SMTP not configured; act as no-op in dev
         print(f"[email] (noop) To: {to_address}\nSubject: {subject}\n\n{body}")
         return False

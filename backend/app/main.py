@@ -3,22 +3,29 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
-from app.routers import menu, orders, simulator, tables, users
-from app.routers import auth as auth_router
-from app.routers import ai
-from app.api.routers import inventory_api, qrcode as qrcode_router, admin as admin_router, admin_dashboard
+from app.api.routers import (
+    menu,
+    orders,
+    simulator,
+    tables,
+    users,
+    auth as auth_router,
+    ai,
+    inventory_api,
+    qrcode as qrcode_router,
+    admin as admin_router,
+    admin_dashboard,
+)
 from app.db.schema import ensure_schema_and_seed
+from app.core import config
 
 app = FastAPI()
 
-frontend_host = os.environ.get("FRONTEND_HOST", "localhost")
-frontend_port = os.environ.get("FRONTEND_PORT", "3000")
-
 allowed_origins = {
-    f"http://{frontend_host}:{frontend_port}",
-    f"https://{frontend_host}:{frontend_port}",
-    f"http://{frontend_host}",
-    f"https://{frontend_host}",
+    f"http://{config.FRONTEND_HOST}:{config.FRONTEND_PORT}",
+    f"https://{config.FRONTEND_HOST}:{config.FRONTEND_PORT}",
+    f"http://{config.FRONTEND_HOST}",
+    f"https://{config.FRONTEND_HOST}",
 }
 
 app.add_middleware(

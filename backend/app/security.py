@@ -1,10 +1,9 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 import secrets
 import hashlib
-from datetime import timedelta
 from fastapi import Depends, HTTPException, Request, Response, status
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from passlib.context import CryptContext
@@ -12,12 +11,13 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app import models
+from app.core import config
 
 _pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
-_SECRET_KEY = os.environ.get("ADMIN_SECRET_KEY", "change-me")
-_SESSION_TTL = int(os.environ.get("ADMIN_SESSION_TTL", "86400"))
-_COOKIE_NAME = os.environ.get("ADMIN_SESSION_COOKIE", "admin_session")
-_COOKIE_SECURE = os.environ.get("ADMIN_COOKIE_SECURE", "true").lower() != "false"
+_SECRET_KEY = config.ADMIN_SECRET_KEY
+_SESSION_TTL = config.ADMIN_SESSION_TTL
+_COOKIE_NAME = config.ADMIN_SESSION_COOKIE
+_COOKIE_SECURE = config.ADMIN_COOKIE_SECURE
 
 _serializer = URLSafeTimedSerializer(_SECRET_KEY, salt="admin-session")
 
@@ -83,9 +83,9 @@ def require_admin_api(
 # Customer session utils (DB-backed)
 # =====================
 
-_USER_COOKIE = os.environ.get("USER_SESSION_COOKIE", "user_session")
-_USER_COOKIE_SECURE = os.environ.get("USER_COOKIE_SECURE", "true").lower() != "false"
-_USER_SESSION_TTL = int(os.environ.get("USER_SESSION_TTL", str(7 * 24 * 3600)))
+_USER_COOKIE = config.USER_SESSION_COOKIE
+_USER_COOKIE_SECURE = config.USER_COOKIE_SECURE
+_USER_SESSION_TTL = config.USER_SESSION_TTL
 
 
 def _hash_token(token: str) -> str:

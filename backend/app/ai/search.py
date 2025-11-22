@@ -6,7 +6,7 @@ import unicodedata
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
-from app.routers import menu as menu_router
+from app.api.routers import menu as menu_router
 
 
 def _normalize(text: str) -> str:

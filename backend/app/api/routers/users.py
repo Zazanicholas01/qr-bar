@@ -38,12 +38,10 @@ async def auto_login(table_id: str | None = None, response: Response = None, req
         db.rollback()
         raise HTTPException(status_code=500, detail="Unable to create user") from exc
 
-    # Set a customer session cookie as well (opaque, DB-backed)
     if response is not None:
         try:
             create_user_session(response, db, user, request)
         except Exception:
-            # don't fail guest creation if cookie cannot be set
             pass
     return user
 

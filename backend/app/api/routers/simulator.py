@@ -13,10 +13,14 @@ from pydantic import BaseModel, Field, validator
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app import inventory as inventory_svc, inventory_ml, models, security
+from app import inventory as inventory_svc, inventory_ml, models
 from app.database import SessionLocal, get_db
-from app.routers.menu import CATEGORIES
+from app.api.routers.menu import CATEGORIES
 from app.core.constants import PAYMENT_METHODS
+from app.core import config
+from app.api import deps
+from app.services import orders as orders_service
+from app.schemas.simulator import SimulationStartResponse
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +28,7 @@ router = APIRouter()
 
 MENU_ITEMS = [item for category in CATEGORIES for item in category["items"]]
 DEFAULT_TABLES = [f"table{i}" for i in range(1, 11)]
-ORDER_RATE_PER_HOUR = 15
+ORDER_RATE_PER_HOUR = config.SIM_ORDER_RATE_PER_HOUR
 SECONDS_PER_ORDER = 3600 / ORDER_RATE_PER_HOUR
 SIM_PAYMENT_METHODS = PAYMENT_METHODS
 
@@ -32,7 +36,7 @@ SIM_PAYMENT_METHODS = PAYMENT_METHODS
 class SimulationRequest(BaseModel):
     hours: float = Field(default=1.0, gt=0, description="Simulated hours to run")
     time_scale: float = Field(
-        default=60.0,
+        default=config.SIM_TIME_SCALE,
         gt=0,
         description="How many simulated seconds elapse per real second. Higher = faster.",
     )
@@ -48,28 +52,28 @@ class SimulationRequest(BaseModel):
         description="Maximum number of items lines per generated order",
     )
     runtime_minutes: int = Field(
-        default=5,
+        default=config.SIM_RUNTIME_MINUTES,
         ge=1,
         le=1440,
         description="Real minutes to keep the simulator active.",
     )
     process_delay_min_minutes: float = Field(
-        default=1.0,
+        default=config.SIM_PROCESS_DELAY_MIN,
         ge=0.1,
         description="Minimum minutes before an order moves from pending to processed.",
     )
     process_delay_max_minutes: float = Field(
-        default=3.0,
+        default=config.SIM_PROCESS_DELAY_MAX,
         ge=0.1,
         description="Maximum minutes before an order moves from pending to processed.",
     )
     checkout_delay_min_minutes: float = Field(
-        default=3.0,
+        default=config.SIM_CHECKOUT_DELAY_MIN,
         ge=0.5,
         description="Minimum minutes between processing and checkout.",
     )
     checkout_delay_max_minutes: float = Field(
-        default=5.0,
+        default=config.SIM_CHECKOUT_DELAY_MAX,
         ge=0.5,
         description="Maximum minutes between processing and checkout.",
     )
@@ -197,21 +201,14 @@ def _checkout_order(order_id: int, run_id: int | None) -> None:
             return
 
         method = random.choice(SIM_PAYMENT_METHODS)
-        order.status = "closed"
-        if order.transaction:
-            order.transaction.method = method
-            order.transaction.amount = order.total_amount
-            order.transaction.created_at = datetime.utcnow()
-        else:
-            session.add(
-                models.Transaction(
-                    order=order,
-                    method=method,
-                    amount=order.total_amount,
-                )
-            )
-
-        inventory_svc.consume_stock_for_order(session, order, created_by="simulator")
+        orders_service.checkout_order(
+            session,
+            order_id,
+            method,
+            consume_inventory=True,
+            created_by="simulator",
+            created_at=datetime.utcnow(),
+        )
         movements = (
             session.query(models.StockMovement)
             .filter(
@@ -341,11 +338,11 @@ def _run_simulation(params: SimulationRequest) -> None:
         session.close()
 
 
-@router.post("/run", status_code=status.HTTP_202_ACCEPTED)
+@router.post("/run", status_code=status.HTTP_202_ACCEPTED, response_model=SimulationStartResponse)
 async def run_simulation(
     request: SimulationRequest,
     background_tasks: BackgroundTasks,
-    admin: models.StaffUser = Depends(security.require_admin_api),
+    admin: models.StaffUser = Depends(deps.require_admin),
 ):
     db = SessionLocal()
     try:
@@ -365,9 +362,7 @@ async def run_simulation(
 @router.post("/reset", status_code=status.HTTP_204_NO_CONTENT)
 async def reset_simulation(
     db: Session = Depends(get_db),
-    admin: models.StaffUser = Depends(security.require_admin_api),
+    admin: models.StaffUser = Depends(deps.require_admin),
 ):
-    db.execute(
-        text("TRUNCATE TABLE order_items, transactions, orders, users RESTART IDENTITY CASCADE")
-    )
+    orders_service.reset_orders(db)
     db.commit()
