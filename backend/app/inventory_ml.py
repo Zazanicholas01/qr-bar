@@ -1,35 +1,13 @@
 from __future__ import annotations
 
-import json
-import logging
 from datetime import datetime, timedelta
 from decimal import Decimal
-from pathlib import Path
 from typing import Any
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from . import models
-
-DEBUG_LOG_PATH = Path(__file__).resolve().parents[1] / "inventory_policy_debug.jsonl"
-logger = logging.getLogger(__name__)
-if not logger.handlers:
-    handler = logging.StreamHandler()
-    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s - %(message)s")
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-logger.setLevel(logging.INFO)
-
-
-def _append_debug_log(payload: dict[str, Any]) -> None:
-    try:
-        DEBUG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with DEBUG_LOG_PATH.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(payload, default=str) + "\n")
-        logger.info("Inventory policy debug payload: %s", payload)
-    except Exception:
-        logger.exception("Failed to append inventory policy debug log")
 
 
 def _safe_float(value: Decimal | float | None) -> float:
@@ -361,7 +339,6 @@ def record_training_snapshot(
         "context_features": context,
         "decision_snapshot": decision_snapshot,
     }
-    _append_debug_log(payload)
     log = models.InventoryPolicyTrainingLog(
         item_id=item.id,
         supply_order_id=supply_order.id if supply_order else None,
@@ -397,14 +374,6 @@ def mark_supply_order_outcome(db: Session, supply_order: models.SupplyOrder) -> 
         "late": sla_hours > 0 and wait_hours > sla_hours,
         "qty_received": _safe_float(supply_order.suggested_qty),
     }
-    _append_debug_log(
-        {
-            "event": "supply_order_outcome",
-            "supply_order_id": supply_order.id,
-            "simulation_run_id": log.simulation_run_id,
-            "outcome_snapshot": log.outcome_snapshot,
-        }
-    )
     db.flush()
 
 
@@ -455,13 +424,4 @@ def record_simulation_run_snapshots(
             outcome_snapshot=outcome_snapshot,
         )
         db.add(log)
-        _append_debug_log(
-            {
-                "event": "simulation_summary",
-                "item_id": item.id,
-                "simulation_run_id": simulation_run.id,
-                "decision_snapshot": decision_snapshot,
-                "outcome_snapshot": outcome_snapshot,
-            }
-        )
     db.flush()

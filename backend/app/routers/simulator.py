@@ -18,15 +18,6 @@ from app.database import SessionLocal, get_db
 from app.routers.menu import CATEGORIES
 
 logger = logging.getLogger(__name__)
-# Ensure our simulator logs are visible even if root is at WARNING
-if not logger.handlers:
-    handler = logging.StreamHandler()
-    formatter = logging.Formatter(
-        "%(asctime)s [%(levelname)s] %(name)s - %(message)s"
-    )
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-logger.setLevel(logging.INFO)
 
 router = APIRouter()
 
