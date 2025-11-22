@@ -1,0 +1,80 @@
+    - app/main.py
+
+        - FastAPI app Creation
+        - Middleware
+        - Router Registration
+        - Startup Events Only
+    
+
+    - app/core/
+
+        - config.py
+            - Env Vars
+            - Constants (Frontend Host / Port)
+            - Payment Method List
+        
+        - events.py
+            - Startup / Shutdown Handlers
+            - Calls Schema / Seed Helpers
+        
+        - urls.py
+            - URL-Based Helpers (get_host_ip / build_public_base_url...)
+    
+
+    - app/db/
+
+        - database.py
+            - Engine / Session
+        
+        - models.py
+            - SQLAlchemy Models
+        
+        - schema.py
+            - Column Exists
+            - Ensure Schema
+            - Schema Migrations
+        
+        - seed.py
+            - All seed minimal Inventory / Suppliers / Supply_Orders
+    
+
+    - app/api/
+
+        - deps.py
+            - Common FastAPI Dependencies (get_db / require_admin_api / current_user)
+        
+        - routers/
+            - menu.py
+            - orders.py
+            - tables.py
+            - users.py
+            - simulator.py
+            - ai.py
+            - auth.py
+            - qrcode.py
+            - inventory_api.py
+            - admin_dashboard.py
+            - admin_inventory.py
+            - admin_testing.py
+    
+
+    - app/services/
+
+        - inventory.py
+            - Stock Movements
+            - Ensure Alerts
+            - Finalize orders
+            - ACK Logic
+        
+        - inventory_ml.py
+            - ML / Analytics Helpers for Inventory
+        
+        - reporting.py
+            - Metrics / Aggregations used by Dashboard
+        
+        - email.py
+    
+
+    - app/schemas/
+
+        - Split schemas.py by domain if it grows

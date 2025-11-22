@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app import inventory as inventory_svc, inventory_ml, models, security
 from app.database import SessionLocal, get_db
 from app.routers.menu import CATEGORIES
+from app.core.constants import PAYMENT_METHODS
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ MENU_ITEMS = [item for category in CATEGORIES for item in category["items"]]
 DEFAULT_TABLES = [f"table{i}" for i in range(1, 11)]
 ORDER_RATE_PER_HOUR = 15
 SECONDS_PER_ORDER = 3600 / ORDER_RATE_PER_HOUR
-SIM_PAYMENT_METHODS = ["cash", "card", "mobile", "other"]
+SIM_PAYMENT_METHODS = PAYMENT_METHODS
 
 
 class SimulationRequest(BaseModel):

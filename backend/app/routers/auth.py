@@ -1,14 +1,14 @@
 import os
-import os
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
-from app import models, schemas
+from app import models
 from app.database import get_db
 from app.security import hash_password, verify_password, create_user_session, clear_user_session, get_user_from_request
 from app.email_utils import send_email
+from app.schemas.users import UserRead
 
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
 _aud_raw = os.environ.get("GOOGLE_AUDIENCES", "")
@@ -25,7 +25,7 @@ class GoogleLoginPayload(BaseModel):
     table_id: str | None = None
 
 
-@router.post("/google", response_model=schemas.UserRead)
+@router.post("/google", response_model=UserRead)
 def google_sign_in(payload: GoogleLoginPayload, response: Response, request: Request, db: Session = Depends(get_db)):
     """Verify Google ID token, upsert user by email, optionally link table.
 
@@ -120,7 +120,7 @@ class RegisterPayload(BaseModel):
     table_id: str | None = None
 
 
-@router.post("/register", response_model=schemas.UserRead)
+@router.post("/register", response_model=UserRead)
 def register_user(payload: RegisterPayload, response: Response, request: Request, db: Session = Depends(get_db)):
     existing = None
     # Best-effort uniqueness on email at app level
@@ -181,7 +181,7 @@ class LoginPayload(BaseModel):
     table_id: str | None = None
 
 
-@router.post("/login", response_model=schemas.UserRead)
+@router.post("/login", response_model=UserRead)
 def login_user(payload: LoginPayload, response: Response, request: Request, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == payload.email).first()
     if not user or not user.password_hash or not verify_password(payload.password, user.password_hash):
@@ -203,7 +203,7 @@ def login_user(payload: LoginPayload, response: Response, request: Request, db: 
     return user
 
 
-@router.get("/session", response_model=schemas.UserRead | None)
+@router.get("/session", response_model=UserRead | None)
 def get_session_user(user: models.User | None = Depends(get_user_from_request)):
     return user
 

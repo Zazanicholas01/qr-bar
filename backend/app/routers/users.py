@@ -3,14 +3,15 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from sqlalchemy.orm import Session
 
-from app import models, schemas
+from app import models
 from app.database import get_db
 from app.security import create_user_session
+from app.schemas.users import UserRead, UserUpdate
 
 router = APIRouter()
 
 
-@router.post("/auto", response_model=schemas.UserRead, status_code=status.HTTP_201_CREATED)
+@router.post("/auto", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 async def auto_login(table_id: str | None = None, response: Response = None, request: Request = None, db: Session = Depends(get_db)):
     """Create a lightweight user row when a guest scans the QR code."""
     try:
@@ -47,16 +48,16 @@ async def auto_login(table_id: str | None = None, response: Response = None, req
     return user
 
 
-@router.get("/", response_model=list[schemas.UserRead])
+@router.get("/", response_model=list[UserRead])
 async def list_users(db: Session = Depends(get_db)):
     users = db.query(models.User).order_by(models.User.created_at.desc()).all()
     return users
 
 
-@router.put("/{user_id}", response_model=schemas.UserRead)
+@router.put("/{user_id}", response_model=UserRead)
 async def update_user(
     user_id: int,
-    payload: schemas.UserUpdate,
+    payload: UserUpdate,
     db: Session = Depends(get_db),
 ):
     user = db.query(models.User).filter(models.User.id == user_id).first()

@@ -2,7 +2,7 @@ name: Build and Publish Docker Images
 
 on:
   push:
-    branches: [ "main", "inventory" ]
+    branches: [ "main", "machine-learning" ]
     tags: [ "v*" ]
   pull_request:
 

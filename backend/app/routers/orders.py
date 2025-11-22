@@ -3,14 +3,19 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app import models, schemas
+from app import models
 from app.database import get_db
+from app.schemas.orders import (
+    OrderCreate,
+    OrderRead,
+    OrderStatusUpdate,
+)
 
 router = APIRouter()
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.OrderRead)
-async def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_db)):
+@router.post("/", status_code=status.HTTP_201_CREATED, response_model=OrderRead)
+async def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
     if not payload.items:
         raise HTTPException(status_code=400, detail="Order must include at least one item")
 
@@ -65,7 +70,7 @@ async def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_d
     return order
 
 
-@router.get("/", response_model=list[schemas.OrderRead])
+@router.get("/", response_model=list[OrderRead])
 async def list_orders(db: Session = Depends(get_db)):
     orders = db.query(models.Order).order_by(models.Order.created_at.desc()).all()
     return orders
@@ -83,10 +88,10 @@ async def delete_order(order_id: int, db: Session = Depends(get_db)):
     return None
 
 
-@router.patch("/{order_id}/status", response_model=schemas.OrderRead)
+@router.patch("/{order_id}/status", response_model=OrderRead)
 async def update_order_status(
     order_id: int,
-    status_payload: schemas.OrderStatusUpdate,
+    status_payload: OrderStatusUpdate,
     db: Session = Depends(get_db),
 ):
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
