@@ -255,8 +255,13 @@ def _checkout_order(order_id: int, run_id: int | None) -> None:
                 metadata={"order_id": order.id},
             )
         restocked = inventory_svc.finalize_processed_supply_orders(session)
-        alerts_created = inventory_svc.ensure_replenishment_alerts(session, simulation_run_id=run_id)
-        acknowledged = inventory_svc.auto_acknowledge_supply_orders(session)
+        try:
+            alerts_created = inventory_svc.ensure_replenishment_alerts(session, simulation_run_id=run_id)
+            acknowledged = inventory_svc.auto_acknowledge_supply_orders(session)
+        except Exception as exc:
+            logger.exception("Sim order %s supply workflow failed: %s", order_id, exc)
+            alerts_created = False
+            acknowledged = False
 
         run = None
         if run_id is not None:

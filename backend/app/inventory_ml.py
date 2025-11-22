@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -12,6 +13,13 @@ from sqlalchemy.orm import Session
 from . import models
 
 DEBUG_LOG_PATH = Path(__file__).resolve().parents[1] / "inventory_policy_debug.jsonl"
+logger = logging.getLogger(__name__)
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s - %(message)s")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 
 
 def _append_debug_log(payload: dict[str, Any]) -> None:
@@ -19,8 +27,9 @@ def _append_debug_log(payload: dict[str, Any]) -> None:
         DEBUG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
         with DEBUG_LOG_PATH.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(payload, default=str) + "\n")
+        logger.info("Inventory policy debug payload: %s", payload)
     except Exception:
-        pass
+        logger.exception("Failed to append inventory policy debug log")
 
 
 def _safe_float(value: Decimal | float | None) -> float:
