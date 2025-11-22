@@ -56,8 +56,8 @@ class SimulationRequest(BaseModel):
         description="Maximum number of items lines per generated order",
     )
     runtime_minutes: int = Field(
-        default=60,
-        ge=30,
+        default=5,
+        ge=1,
         le=1440,
         description="Real minutes to keep the simulator active.",
     )
@@ -314,6 +314,10 @@ def _run_simulation(params: SimulationRequest) -> None:
         end_time = datetime.utcnow() + timedelta(minutes=params.runtime_minutes)
 
         while datetime.utcnow() < end_time:
+            session.refresh(simulation_run)
+            if simulation_run.status != "running":
+                logger.info("Simulation run %s stopped; ending loop", simulation_run.id)
+                break
             table_code = random.choice(available_tables)
             table = _ensure_table(session, table_code)
             order = _create_order(session, table)
@@ -327,7 +331,9 @@ def _run_simulation(params: SimulationRequest) -> None:
             if sleep_interval > 0:
                 time.sleep(sleep_interval)
 
-        simulation_run.status = "completed"
+        session.refresh(simulation_run)
+        if simulation_run.status == "running":
+            simulation_run.status = "completed"
         simulation_run.ended_at = datetime.utcnow()
         session.commit()
 

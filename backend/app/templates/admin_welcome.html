@@ -85,6 +85,8 @@
         <div class="flash success">Simulazione inventory avviata.</div>
       {% elif simulation_state.status == "running" %}
         <div class="flash info">È già in esecuzione una simulazione.</div>
+      {% elif simulation_state.status == "stopped" %}
+        <div class="flash info">Simulazione interrotta.</div>
       {% endif %}
       {% if admin %}
         <p class="muted">Benvenuto, <strong>{{ admin.username }}</strong>.</p>
@@ -113,6 +115,11 @@
                 Avvia simulazione ML (60 min)
               </button>
             </form>
+            {% if simulation_state.active %}
+              <form method="post" action="/admin/simulator/stop" onsubmit="return confirm('Interrompere la simulazione in corso?')">
+                <button class="button" type="submit" style="background:linear-gradient(135deg,#d32f2f,#b71c1c)">Stop simulazione</button>
+              </form>
+            {% endif %}
             {% if simulation_state.latest %}
               <p class="muted" style="margin:0;">
                 Ultima simulazione: <strong>{{ simulation_state.latest.status }}</strong>

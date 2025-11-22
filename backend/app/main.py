@@ -847,6 +847,30 @@ def start_admin_simulation(
     return RedirectResponse(url="/admin/?sim=started", status_code=303)
 
 
+@app.post("/admin/simulator/stop")
+def stop_admin_simulation(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    admin = security.get_admin_from_request(request, db)
+    if not admin:
+        return RedirectResponse(url="/admin/login", status_code=303)
+
+    running = (
+        db.query(models.SimulationRun)
+        .filter(models.SimulationRun.status == "running")
+        .first()
+    )
+    if not running:
+        return RedirectResponse(url="/admin/?sim=none", status_code=303)
+
+    running.status = "stopped"
+    running.ended_at = datetime.utcnow()
+    db.commit()
+
+    return RedirectResponse(url="/admin/?sim=stopped", status_code=303)
+
+
 @app.post("/admin/login")
 def login_submit(
     request: Request,
