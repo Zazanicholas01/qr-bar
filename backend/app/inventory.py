@@ -62,14 +62,28 @@ def _record_movement(
 ) -> None:
     # Idempotency only applies when we have a concrete reference identifier (e.g. orders)
     if ref_type is not None and ref_id is not None:
-        exists = db.query(models.StockMovement).filter(
-            and_(
-                models.StockMovement.item_id == item_id,
-                models.StockMovement.reason == reason,
-                models.StockMovement.ref_type == ref_type,
-                models.StockMovement.ref_id == ref_id,
+        # Check pending objects in the current session to avoid duplicate inserts before flush
+        for pending in db.new:
+            if (
+                isinstance(pending, models.StockMovement)
+                and pending.item_id == item_id
+                and pending.reason == reason
+                and pending.ref_type == ref_type
+                and pending.ref_id == ref_id
+            ):
+                return
+        exists = (
+            db.query(models.StockMovement)
+            .filter(
+                and_(
+                    models.StockMovement.item_id == item_id,
+                    models.StockMovement.reason == reason,
+                    models.StockMovement.ref_type == ref_type,
+                    models.StockMovement.ref_id == ref_id,
+                )
             )
-        ).first()
+            .first()
+        )
         if exists:
             return
 
