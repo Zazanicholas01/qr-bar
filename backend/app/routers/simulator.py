@@ -1,3 +1,4 @@
+import logging
 import math
 import random
 import threading
@@ -15,6 +16,8 @@ from sqlalchemy.orm import Session
 from app import inventory as inventory_svc, inventory_ml, models, security
 from app.database import SessionLocal, get_db
 from app.routers.menu import CATEGORIES
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -159,12 +162,18 @@ def _mark_order_processed(
     session = SessionLocal()
     try:
         order = session.query(models.Order).filter(models.Order.id == order_id).first()
-        if not order or order.status == "closed":
+        if not order:
+            logger.warning("Sim processing skipped: order %s not found", order_id)
+            return
+        if order.status == "closed":
+            logger.info("Sim processing skipped: order %s already closed", order_id)
             return
         order.status = "processed"
         session.commit()
-    except Exception:
+        logger.info("Sim order %s marked as processed", order_id)
+    except Exception as exc:
         session.rollback()
+        logger.exception("Sim order %s processing failed: %s", order_id, exc)
         return
     finally:
         session.close()
@@ -179,7 +188,11 @@ def _checkout_order(order_id: int, run_id: int | None) -> None:
     session = SessionLocal()
     try:
         order = session.query(models.Order).filter(models.Order.id == order_id).first()
-        if not order or order.status == "closed":
+        if not order:
+            logger.warning("Sim checkout skipped: order %s not found", order_id)
+            return
+        if order.status == "closed":
+            logger.info("Sim checkout skipped: order %s already closed", order_id)
             return
 
         method = random.choice(SIM_PAYMENT_METHODS)
@@ -245,8 +258,17 @@ def _checkout_order(order_id: int, run_id: int | None) -> None:
         if restocked or alerts_created or acknowledged:
             session.flush()
         session.commit()
-    except Exception:
+        logger.info(
+            "Sim order %s closed (run_id=%s, restocked=%s, alerts=%s, ack=%s)",
+            order.id,
+            run_id,
+            restocked,
+            alerts_created,
+            acknowledged,
+        )
+    except Exception as exc:
         session.rollback()
+        logger.exception("Sim order %s checkout failed: %s", order_id, exc)
     finally:
         session.close()
 
