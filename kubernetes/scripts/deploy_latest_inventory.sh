@@ -9,7 +9,7 @@ alias kubectl="microk8s kubectl"
 alias helm="microk8s helm3"
 
 WORKFLOW_NAME="Build and Publish Docker Images"
-BRANCH_NAME="${1:-inventory}"
+BRANCH_NAME="${1:-machine-learning}"
 
 echo "Resolving latest short SHA from workflow \"${WORKFLOW_NAME}\" on branch \"${BRANCH_NAME}\"..."
 SHORT_SHA=$(
@@ -29,7 +29,7 @@ fi
 echo "Using short SHA: ${SHORT_SHA}"
 
 echo "Running helm upgrade with matching backend/frontend images..."
-helm upgrade --install qr-app charts/qr-app -n qr -f charts/qr-app/values.yaml \
+helm upgrade --install qr-app kubernetes/helm_charts/qr-app -n qr -f kubernetes/helm_charts/qr-app/values.yaml \
   --set-string image.backend="ghcr.io/zazanicholas01/qr-backend:sha-${SHORT_SHA}" \
   --set-string image.frontend="ghcr.io/zazanicholas01/qr-frontend:sha-${SHORT_SHA}" \
   --set fullnameOverride=qr-app

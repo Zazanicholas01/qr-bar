@@ -1,8 +1,9 @@
 namespace: qr
 
 image:
-  backend: ghcr.io/zazanicholas01/qr-backend:latest
-  frontend: ghcr.io/zazanicholas01/qr-frontend:latest
+  # Tags are injected by deploy scripts (see kubernetes/scripts/deploy_latest_inventory.sh).
+  backend: ghcr.io/zazanicholas01/qr-backend:sha-CHANGE_ME
+  frontend: ghcr.io/zazanicholas01/qr-frontend:sha-CHANGE_ME
 
 replicas:
   backend: 2

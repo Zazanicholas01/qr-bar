@@ -1,0 +1,6 @@
+# Dev/testing overrides for the qr-app chart.
+# Use with: helm upgrade --install qr-app kubernetes/helm_charts/qr-app -n qr -f kubernetes/helm_charts/qr-app/values.dev.yaml --set fullnameOverride=qr-app
+
+replicas:
+  backend: 1
+  frontend: 1

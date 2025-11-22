@@ -1,0 +1,25 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: qr-app-backend-pdb
+  namespace: qr
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: qr-app
+      app.kubernetes.io/instance: qr-app
+      app.kubernetes.io/component: backend
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: qr-app-frontend-pdb
+  namespace: qr
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: qr-app
+      app.kubernetes.io/instance: qr-app
+      app.kubernetes.io/component: frontend
