@@ -110,7 +110,7 @@
           <div style="display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center; justify-content:center;">
             <form method="post" action="/admin/simulator/start">
               <button class="button" type="submit" {% if simulation_state.active %}disabled style="background:#bbb; cursor:not-allowed"{% endif %}>
-                Avvia simulazione ML (30 min)
+                Avvia simulazione ML (60 min)
               </button>
             </form>
             {% if simulation_state.latest %}
@@ -137,7 +137,7 @@
         </div>
         <div style="margin-top:1rem; padding:1rem; border-radius:12px; background:rgba(62,39,35,0.05);">
           <form method="post" action="/admin/simulator/start">
-            <button class="button" type="submit" disabled style="background:#b94b4b; cursor:not-allowed;">Avvia simulazione ML (30 min)</button>
+            <button class="button" type="submit" disabled style="background:#b94b4b; cursor:not-allowed;">Avvia simulazione ML (60 min)</button>
           </form>
           <p class="muted" style="margin:0.75rem 0 0;">Accedi per avviare la simulazione inventario.</p>
         </div>

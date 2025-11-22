@@ -39,3 +39,9 @@ kubectl -n qr rollout restart deployment/qr-app-backend
 kubectl -n qr rollout restart deployment/qr-app-frontend
 
 echo "Done."
+
+echo "Waiting for Ready Status..."
+kubectl -n qr rollout status deployment/qr-app-backend
+kubectl -n qr rollout status deployment/qr-app-frontend
+
+echo "Done."

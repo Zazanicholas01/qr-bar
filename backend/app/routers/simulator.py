@@ -44,7 +44,7 @@ class SimulationRequest(BaseModel):
         description="Maximum number of items lines per generated order",
     )
     runtime_minutes: int = Field(
-        default=30,
+        default=60,
         ge=30,
         le=1440,
         description="Real minutes to keep the simulator active.",
