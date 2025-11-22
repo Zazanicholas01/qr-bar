@@ -225,7 +225,7 @@ def build_feature_snapshot(
     avg_lead_hours, std_lead_hours, reliability, fill_rate = _lead_time_stats(db, item.id)
 
     preference = _preference_score(db, item.id)
-    payment_mix = _payment_mix()
+    payment_mix = _payment_mix(db)
 
     on_order_qty = (
         db.query(func.coalesce(func.sum(models.SupplyOrder.suggested_qty), 0))
