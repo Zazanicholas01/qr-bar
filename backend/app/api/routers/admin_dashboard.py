@@ -72,8 +72,6 @@ def list_closed_orders(
 def admin_inventory(request: Request, db: Session = Depends(get_db), admin: models.StaffUser = Depends(deps.require_admin)):
 
     overview = reporting_inventory.build_inventory_overview(db)
-    if overview.get("changed"):
-        db.commit()
 
     return templates.TemplateResponse(
         "inventory.html",
