@@ -227,6 +227,48 @@ def ensure_schema_and_seed() -> None:
                 """
             )
         )
+        connection.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS inventory_policy_logs (
+                    id BIGSERIAL PRIMARY KEY,
+                    simulation_run_id INTEGER REFERENCES simulation_runs(id) ON DELETE SET NULL,
+                    item_id INTEGER REFERENCES inventory_items(id) ON DELETE SET NULL,
+                    location_id INTEGER REFERENCES inventory_locations(id) ON DELETE SET NULL,
+                    event_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    demand_qty NUMERIC(12,3) NOT NULL DEFAULT 0,
+                    on_hand_before NUMERIC(12,3) NOT NULL DEFAULT 0,
+                    on_hand_after NUMERIC(12,3) NOT NULL DEFAULT 0,
+                    inventory_position_before NUMERIC(12,3) NOT NULL DEFAULT 0,
+                    inventory_position_after NUMERIC(12,3) NOT NULL DEFAULT 0,
+                    reorder_point NUMERIC(12,3),
+                    safety_stock NUMERIC(12,3),
+                    lead_time_days NUMERIC(8,2),
+                    order_qty_placed NUMERIC(12,3) NOT NULL DEFAULT 0,
+                    backorder_qty NUMERIC(12,3) NOT NULL DEFAULT 0,
+                    stockout_flag BOOLEAN NOT NULL DEFAULT FALSE,
+                    threshold_type VARCHAR(32) NOT NULL DEFAULT 'on_hand_qty',
+                    threshold_value NUMERIC(12,3),
+                    threshold_breached_flag BOOLEAN NOT NULL DEFAULT FALSE,
+                    policy_version VARCHAR(120) NOT NULL DEFAULT 'v1',
+                    source VARCHAR(24) NOT NULL DEFAULT 'production',
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+                """
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_inventory_policy_logs_run "
+                "ON inventory_policy_logs (simulation_run_id, event_time);"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_inventory_policy_logs_item_loc_time "
+                "ON inventory_policy_logs (item_id, location_id, event_time);"
+            )
+        )
 
         codes = set()
         result = connection.execute(

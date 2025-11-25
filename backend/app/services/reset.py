@@ -7,6 +7,7 @@ def reset_demo_data(connection: Connection) -> None:
         text(
             "TRUNCATE TABLE "
             "inventory_policy_training_logs, "
+            "inventory_policy_logs, "
             "supply_orders, "
             "order_items, "
             "transactions, "

@@ -1,6 +1,17 @@
 from datetime import datetime
 from decimal import Decimal
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, JSON
+from sqlalchemy import (
+    Boolean,
+    BigInteger,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    JSON,
+)
 from sqlalchemy.orm import relationship
 from sqlalchemy.schema import UniqueConstraint
 
@@ -255,6 +266,11 @@ class SimulationRun(Base):
     ended_at = Column(DateTime, nullable=True)
 
     training_logs = relationship("InventoryPolicyTrainingLog", back_populates="simulation_run", cascade="all, delete-orphan")
+    inventory_policy_logs = relationship(
+        "InventoryPolicyLog",
+        back_populates="simulation_run",
+        cascade="all, delete-orphan",
+    )
 
 
 class InventoryPolicyTrainingLog(Base):
@@ -272,6 +288,47 @@ class InventoryPolicyTrainingLog(Base):
     item = relationship("InventoryItem")
     supply_order = relationship("SupplyOrder")
     simulation_run = relationship("SimulationRun", back_populates="training_logs")
+
+
+class InventoryPolicyLog(Base):
+    __tablename__ = "inventory_policy_logs"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    simulation_run_id = Column(Integer, ForeignKey("simulation_runs.id", ondelete="SET NULL"), nullable=True)
+    item_id = Column(Integer, ForeignKey("inventory_items.id", ondelete="SET NULL"), nullable=True)
+    location_id = Column(Integer, ForeignKey("inventory_locations.id", ondelete="SET NULL"), nullable=True)
+    event_time = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    demand_qty = Column(Numeric(12, 3), nullable=False, default=0)
+    on_hand_before = Column(Numeric(12, 3), nullable=False, default=0)
+    on_hand_after = Column(Numeric(12, 3), nullable=False, default=0)
+    inventory_position_before = Column(Numeric(12, 3), nullable=False, default=0)
+    inventory_position_after = Column(Numeric(12, 3), nullable=False, default=0)
+
+    reorder_point = Column(Numeric(12, 3), nullable=True)
+    safety_stock = Column(Numeric(12, 3), nullable=True)
+    lead_time_days = Column(Numeric(8, 2), nullable=True)
+
+    order_qty_placed = Column(Numeric(12, 3), nullable=False, default=0)
+    backorder_qty = Column(Numeric(12, 3), nullable=False, default=0)
+    stockout_flag = Column(Boolean, nullable=False, default=False)
+
+    threshold_type = Column(String(32), nullable=False, default="on_hand_qty")
+    threshold_value = Column(Numeric(12, 3), nullable=True)
+    threshold_breached_flag = Column(Boolean, nullable=False, default=False)
+
+    policy_version = Column(String(120), nullable=False, default="v1")
+    source = Column(String(24), nullable=False, default="production")
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    simulation_run = relationship("SimulationRun", back_populates="inventory_policy_logs")
+    item = relationship("InventoryItem")
+    location = relationship("InventoryLocation")
+
+    __table_args__ = (
+        Index("idx_inventory_policy_logs_run", "simulation_run_id", "event_time"),
+        Index("idx_inventory_policy_logs_item_loc_time", "item_id", "location_id", "event_time"),
+    )
 
 
 # =====================
