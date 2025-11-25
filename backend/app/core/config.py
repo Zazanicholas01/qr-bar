@@ -48,6 +48,13 @@ POSTGRES_USER = os.environ.get("POSTGRES_USER", "baradmin")
 POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "barpass")
 POSTGRES_DB = os.environ.get("POSTGRES_DB", "bardb")
 
+# MinIO / object storage configuration
+MINIO_ENDPOINT = os.environ.get("MINIO_ENDPOINT", "minio:9000")
+MINIO_ACCESS_KEY = os.environ.get("MINIO_ACCESS_KEY", "minioadmin")
+MINIO_SECRET_KEY = os.environ.get("MINIO_SECRET_KEY", "changeMe123!")
+MINIO_BUCKET = os.environ.get("MINIO_BUCKET", "inventory-policy-csv")
+MINIO_SECURE = os.environ.get("MINIO_SECURE", "false").lower() == "true"
+
 # Simulator defaults (overridable)
 SIM_ORDER_RATE_PER_HOUR = int(os.environ.get("SIM_ORDER_RATE_PER_HOUR", "15"))
 SIM_PROCESS_DELAY_MIN = float(os.environ.get("SIM_PROCESS_DELAY_MIN", "1.0"))

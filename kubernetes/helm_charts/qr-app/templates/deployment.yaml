@@ -47,6 +47,31 @@ spec:
             {{- with .Values.env.backend }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
+            {{- if .Values.minio.enabled }}
+            - name: MINIO_ENDPOINT
+              value: {{ .Values.minio.endpoint | quote }}
+            - name: MINIO_BUCKET
+              value: {{ .Values.minio.bucket | quote }}
+            - name: MINIO_SECURE
+              value: {{ .Values.minio.secure | quote }}
+            {{- if .Values.minio.existingSecret }}
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.minio.existingSecret | quote }}
+                  key: {{ .Values.minio.accessKeyKey | default "MINIO_ROOT_USER" | quote }}
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.minio.existingSecret | quote }}
+                  key: {{ .Values.minio.secretKeyKey | default "MINIO_ROOT_PASSWORD" | quote }}
+            {{- else }}
+            - name: MINIO_ACCESS_KEY
+              value: {{ .Values.minio.accessKey | quote }}
+            - name: MINIO_SECRET_KEY
+              value: {{ .Values.minio.secretKey | quote }}
+            {{- end }}
+            {{- end }}
           ports:
             - name: http
               containerPort: 8000

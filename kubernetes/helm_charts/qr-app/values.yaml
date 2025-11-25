@@ -64,6 +64,18 @@ env:
     # Show email/reset links in API responses when SMTP is not configured
     - name: EMAIL_DEBUG_LINKS
       value: "true"
+minio:
+  enabled: true
+  endpoint: "minio:9000"
+  bucket: "inventory-policy-csv"
+  secure: "false"
+  # If you deploy the MinIO secret separately, point here
+  existingSecret: "minio-credentials"
+  accessKeyKey: "MINIO_ROOT_USER"
+  secretKeyKey: "MINIO_ROOT_PASSWORD"
+  # If you prefer not to reference an existing secret, set these instead:
+  accessKey: "minioadmin"
+  secretKey: "changeMe123!"
 
 ingress:
   enabled: true

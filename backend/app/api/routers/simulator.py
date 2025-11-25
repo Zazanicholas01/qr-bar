@@ -20,6 +20,7 @@ from app.core.constants import PAYMENT_METHODS
 from app.core import config
 from app.api import deps
 from app.services import orders as orders_service
+from app.services.inventory_policy_export import export_inventory_policy_logs_to_minio
 from app.schemas.simulator import SimulationStartResponse
 
 logger = logging.getLogger(__name__)
@@ -334,6 +335,10 @@ def _run_simulation(params: SimulationRequest) -> None:
         session.expire_all()
         inventory_ml.record_simulation_run_snapshots(session, simulation_run=simulation_run)
         session.commit()
+        try:
+            export_inventory_policy_logs_to_minio(session, simulation_run_id=simulation_run.id)
+        except Exception as exc:
+            logger.exception("Failed to export inventory policy logs for run %s: %s", simulation_run.id, exc)
     finally:
         session.close()
 

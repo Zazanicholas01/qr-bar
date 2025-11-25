@@ -15,3 +15,4 @@ itsdangerous
 email-validator
 google-auth
 requests
+minio
