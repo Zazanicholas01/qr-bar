@@ -243,6 +243,7 @@ def _checkout_order(order_id: int, run_id: int | None) -> None:
                 simulation_run_id=run_id,
                 event="checkout",
                 metadata={"order_id": order.id},
+                demand_qty=consumed_qty,
             )
         restocked = inventory_svc.finalize_processed_supply_orders(session)
         try:

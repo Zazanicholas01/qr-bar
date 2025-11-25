@@ -231,6 +231,7 @@ def ensure_replenishment_alerts(db: Session, simulation_run_id: int | None = Non
             qty_on_hand=float(qty_on_hand),
             suggested_qty=float(suggested_qty),
             simulation_run_id=simulation_run_id,
+            demand_qty=None,
         )
         created = True
 

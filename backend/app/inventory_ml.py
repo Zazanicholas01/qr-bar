@@ -306,6 +306,7 @@ def record_training_snapshot(
     simulation_run_id: int | None = None,
     event: str = "supply_alert",
     metadata: dict[str, Any] | None = None,
+    demand_qty: float | None = None,
 ) -> None:
     qoh = qty_on_hand if qty_on_hand is not None else _qty_on_hand(db, item.id)
     context = build_feature_snapshot(db, item, qty_on_hand=qoh)
@@ -347,6 +348,44 @@ def record_training_snapshot(
         decision_snapshot=decision_snapshot,
     )
     db.add(log)
+    # Also persist a structured policy log row for CSV exports
+    on_order_qty = context.get("supplier", {}).get("on_order_qty") or 0.0
+    on_hand_after = _safe_float(qoh)
+    demand_value = demand_qty if demand_qty is not None else suggested_qty
+    on_hand_before = on_hand_after + (demand_value or 0.0)
+    reorder_point = _safe_float(item.reorder_point) if item.reorder_point is not None else None
+    safety_stock = _safe_float(item.alert_threshold_qty) if item.alert_threshold_qty is not None else None
+    lead_time_hours = context.get("supplier", {}).get("lead_time_avg_hours")
+    lead_time_days = (lead_time_hours / 24.0) if lead_time_hours else None
+    threshold_value = safety_stock if safety_stock is not None else reorder_point
+    threshold_breached = False
+    if threshold_value is not None:
+        threshold_breached = on_hand_after <= threshold_value
+    policy_version = "v1"
+    source = "simulation" if simulation_run_id is not None else "production"
+    policy_log = models.InventoryPolicyLog(
+        simulation_run_id=simulation_run_id,
+        item_id=item.id,
+        location_id=None,
+        event_time=datetime.utcnow(),
+        demand_qty=Decimal(str(demand_value or 0)),
+        on_hand_before=Decimal(str(on_hand_before)),
+        on_hand_after=Decimal(str(on_hand_after)),
+        inventory_position_before=Decimal(str(on_hand_before + (on_order_qty or 0))),
+        inventory_position_after=Decimal(str(on_hand_after + (on_order_qty or 0))),
+        reorder_point=Decimal(str(reorder_point)) if reorder_point is not None else None,
+        safety_stock=Decimal(str(safety_stock)) if safety_stock is not None else None,
+        lead_time_days=Decimal(str(lead_time_days)) if lead_time_days is not None else None,
+        order_qty_placed=Decimal(str(suggested_qty or 0)),
+        backorder_qty=Decimal("0"),
+        stockout_flag=on_hand_after <= 0,
+        threshold_type="on_hand_qty",
+        threshold_value=Decimal(str(threshold_value)) if threshold_value is not None else None,
+        threshold_breached_flag=threshold_breached,
+        policy_version=policy_version,
+        source=source,
+    )
+    db.add(policy_log)
     db.flush()
 
 
@@ -424,4 +463,27 @@ def record_simulation_run_snapshots(
             outcome_snapshot=outcome_snapshot,
         )
         db.add(log)
+        policy_log = models.InventoryPolicyLog(
+            simulation_run_id=simulation_run.id,
+            item_id=item.id,
+            location_id=None,
+            event_time=end,
+            demand_qty=Decimal(str(sales_in_run or 0)),
+            on_hand_before=Decimal(str(qty_on_hand + (sales_in_run or 0))),
+            on_hand_after=Decimal(str(qty_on_hand)),
+            inventory_position_before=Decimal(str((qty_on_hand + (sales_in_run or 0)))),
+            inventory_position_after=Decimal(str(qty_on_hand)),
+            reorder_point=item.reorder_point,
+            safety_stock=item.alert_threshold_qty,
+            lead_time_days=None,
+            order_qty_placed=Decimal("0"),
+            backorder_qty=Decimal("0"),
+            stockout_flag=qty_on_hand <= 0,
+            threshold_type="on_hand_qty",
+            threshold_value=item.alert_threshold_qty or item.reorder_point,
+            threshold_breached_flag=qty_on_hand <= (item.alert_threshold_qty or item.reorder_point or 0),
+            policy_version="v1",
+            source="simulation",
+        )
+        db.add(policy_log)
     db.flush()
