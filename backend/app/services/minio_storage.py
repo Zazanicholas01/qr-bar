@@ -48,17 +48,17 @@ def get_client(minio_cfg: MinioConfig | None = None) -> Minio:
 
 
 def ensure_bucket(client: Minio, bucket: str) -> None:
-    if not client.bucket_exists(bucket):
-        client.make_bucket(bucket)
+    if not client.bucket_exists(bucket_name=bucket):
+        client.make_bucket(bucket_name=bucket)
 
 
 def upload_file(client: Minio, *, bucket: str, object_name: str, file_path: str, content_type: str = "application/octet-stream") -> str:
     ensure_bucket(client, bucket)
-    client.fput_object(bucket, object_name, file_path, content_type=content_type)
+    client.fput_object(bucket_name=bucket, object_name=object_name, file_path=file_path, content_type=content_type)
     return f"{bucket}/{object_name}"
 
 
 def upload_bytes(client: Minio, *, bucket: str, object_name: str, data: bytes, content_type: str = "application/octet-stream") -> str:
     ensure_bucket(client, bucket)
-    client.put_object(bucket, object_name, data=data, length=len(data), content_type=content_type)
+    client.put_object(bucket_name=bucket, object_name=object_name, data=data, length=len(data), content_type=content_type)
     return f"{bucket}/{object_name}"
