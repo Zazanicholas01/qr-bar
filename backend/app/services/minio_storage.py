@@ -39,7 +39,12 @@ def get_minio_config() -> MinioConfig:
 
 def get_client(minio_cfg: MinioConfig | None = None) -> Minio:
     cfg = minio_cfg or get_minio_config()
-    return Minio(cfg.endpoint, access_key=cfg.access_key, secret_key=cfg.secret_key, secure=cfg.secure)
+    return Minio(
+        endpoint=cfg.endpoint,
+        access_key=cfg.access_key,
+        secret_key=cfg.secret_key,
+        secure=cfg.secure,
+    )
 
 
 def ensure_bucket(client: Minio, bucket: str) -> None:
